@@ -17,7 +17,7 @@ Leveraging TypeScript, Proxies and the concept of context... Fluent allows you t
 To install Fluent, use npm:
 
 ```bash
-npm install fluent
+npm install https://github.com/paulpomerleau/fluent
 ```
 
 ## Usage
