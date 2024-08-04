@@ -1,12 +1,16 @@
 # Fluent
 
+> [!WARNING] BETA  
+> This is very much in beta mode. Expect breaking changes as things mature, meantime provide feedback, create issues or PRs. 
+
+
+**TLDR** - Fluent helps you build complex [fluent interfaces](https://en.wikipedia.org/wiki/Fluent_interface) aka "chainable methods" easily. 
+
 Fluent is a lightweight TypeScript library designed to help you build complex, strongly typed fluent APIs with ease. It provides a flexible and intuitive way to create and execute chains of operations, which can include validations, data transformations, API calls, and more. Fluent simplifies the process of constructing these operation chains. When used effectively, it allows you to write logic that reads like the business requirement equivalent, making it easier to align your code with business rules. Additionally, Fluent's programming paradigm encourages the use of small, reusable methods, which enhances testability and supports robust and reliable development.
 
-## Important
+## Motivation
 
-This is very much in development. Please test things out and give feedback / make issues if something is broken OR there missing desired functionality. If this becomes popular it will likely change homes. We also intend to move this to a monorepo and setup for open-source community apis (validators, operands and other common tools we can all share).
-
-## Motiviation
+**TLDR** - Fluent interfaces are great to use but hard to setup, harder to maintain. This aims to remove the shortcomings.
 
 [Fluent Interface](https://en.wikipedia.org/wiki/Fluent_interface) patterns can make your code very succinct and semantic. This can be extermely beneficial for complex business logic. But traditional fluent interface patterns have some challenged with [error capture](https://en.wikipedia.org/wiki/Fluent_interface#Errors_cannot_be_captured_at_compile_time), [debugging](https://en.wikipedia.org/wiki/Fluent_interface#Debugging_and_error_reporting), [logging](https://en.wikipedia.org/wiki/Fluent_interface#Logging), [subclassing](https://en.wikipedia.org/wiki/Fluent_interface#Subclasses), [maintenance](https://www.yegor256.com/2018/03/13/fluent-interfaces.html#:~:text=Fluent%20interfaces%20are%20good%20for%20users%2C%20but%20bad%20for%20library,an%20advantage%2C%20not%20a%20drawback.). Furthermore methods and their relationships must be known at the time you're building them, you have to make assumptions about how they'll be used. 
 
@@ -20,212 +24,154 @@ To install Fluent, use npm:
 npm install https://github.com/paulpomerleau/fluent
 ```
 
-## Usage
-
-### Creating a Fluent API
-
-To create a fluent API, use the fluent function and pass in your API structure. The API structure defines the available methods and their expected behavior.
-
-Here we'll create a validator with a namespace for `string` and some chainable methods `min` and `max` for further checks. Well use the context `value` and `errors` props you could do whatever you want with the context. Note we're not throwing any errors, rather we're checking for them. We want to continue execution because we don't know what will happen next in the chain.
+## Quickstart
 
 ```typescript
-type Context = {
-  value: any,
-  errors: string[],
+// import your library and types 
+import { fluent, run, Ctx } from "fluent"
+
+/** 
+ * setup context types, ctx is passed to each method
+ * type Ctx = {
+ *     ops: { method: 'path', args: any, result: any }[] - used to track execution history
+ *     run: (method) => any | Promise<any> - lets you run methods from within methods
+ *     [key: string]: any - add whatever you want
+ * }
+ */ .
+type Context = Ctx & {
+    value: any; // we'll use the value key to set our input
+    errors: []; // let's track any errors here
 }
 
-const string = (ctx: any) => {
-  if (typeof ctx.value !== "string") {
-    ctx.errors.push("Value must be a string");
-  }
-};
-
-const min = (ctx: any, len: number) => {
-  string(ctx);
-  if (!ctx.errors.length && ctx.value.length < len) {
-    ctx.errors.push("String is too short");
-  }
+/**
+ * setup methods you want to chain
+ * let's do a string validator and auth as seperate apis
+ */
+ 
+// for the string we'll check for length and pattern
+type VString = {
+    min: (len: number) => void, 
+    max: (len: number) => void, 
+    pattern: (regex: string) => void,
 }
 
-const max = (ctx: any, len: number) => {
-  string(ctx);
-  if (!ctx.errors.length && ctx.value.length > len) {
-    ctx.errors.push("String is too long");
-  }
+// helper for all string methods
+const isString = (ctx: Context) {
+    const isValid = typeof ctx.value === 'string';
+    if (!isValid) ctx.errors.push('Invalid string');
+    return isValid;
 }
 
-export type Methods = {
-  string: {
-    min: (len: number) => void,
-    max: (len: number) => void,
-  };
-};
-
-export const methods = {
-  string: {
-    min,
-    max,
-  },
-};
-```
-
-### Building an Operation Chain
-
-Once you have created the fluent API, you can build an operation chain by calling the methods in a fluent manner, chaining one method call after another.
-
-```typescript
-
-const api = {
-  validate: methods as Methods
-}
-
-const { validate } = fluent(api);
-
-```
-What you get is a fully typed exucition chain of all the methods you provided.
-```typescript
-validate.string.min(2).max(8);
-```
-
-### Executing the Operations
-
-To execute the operations defined in your chain, use the run function. This function takes the operation chain, context, and API structure as parameters.
-
-```typescript
-// initialize the context
-
-const ctx = { value: 'this string is way too long', errors: [] };
-const ops = validate.string.min(2).max(10);
-
-const result = run({ api, ctx, ops })
-
-console.log(result) 
-// { value: 'this string is way too long', errors: [ 'String is too long' ] }
-
-```
-
-## API Reference
-
-### fluent(apiStructure)
-
-Parameters:
-- `apiStructure`: An object defining the structure and methods of your API. 
-- `Returns`: A fluent API instance.
-
-### run({ ops, ctx, api })
-
-Parameters:
-- `ops`: The operation chain generated by the fluent API.
-- `ctx`: The context object that will be passed to each method in the operation chain.
-- `api`: The original API structure.
-- `Returns`: The context object after executing the operations. 
-- `Returns` a promise if any operations in the chain return a promise.
-
-## Use Case Examples
-
-Fluent can be used in various scenarios. Here are just a few examples to demonstrate its versatility. 
-
-### Common Imports
-
-```typescript
-import { methods as stringMethods } from "./validator/string";
-import { methods as emailMethods } from "./api/email";
-import { methods as userMethods } from "./api/users";
-import { fluent, run } from "fluent";
-```
-
-### Validation
-
-You can use Fluent to create validator chains:
-
-```typescript
-const api = {
-  validate: {
-    string: {
-      pattern: (regex: string) => void,
-      require: () => void,
+const string: VString = {
+    min: (ctx: Context, len: number) {
+        if(!isString(ctx) || ctx.value.length < len) {
+            ctx.errors.push('String is too short');
+        }
+    },
+    max: (ctx: Context, len: number) {
+        if(!isString(ctx) || ctx.value.length > len) {
+            ctx.errors.push('String is too long');
+        }
+    },
+    pattern: (ctx: Context, pattern: string) {
+        const regex = new Regex(pattern);
+        if (!isString(ctx) || !regex.test(ctx.value)) {
+            ctx.errors.push('String does not match expected pattern');
+        }
     }
-  },
-};
+}
 
-const { validate } = fluent(api);
+// for the auth we'll expose a createToken method
+type Auth = {
+    createToken: () => void,
+}
 
-// make sure this is a valid email
-const isEmail = validate.string.pattern(/^\S+@\S+.\S+$/.source).required;
+const auth: Auth = {
+    createToken: (ctx: Context) {
+        ctx.token = ctx.errors.length ? 
+            null : (Math.random() + 1).toString(36).substring(7);
+    }
+}
 
-const emails = ["test@email.com", undefined, 12324, "invalidemail"];
+// now we can create our fluent api
+const api = { string, auth };
+const { string, auth } = fluent(api);
 
-// you can setup your fluent methods to work with any ctx shape you'd like. here we're setting email to ctx.value and errors 
-emails.forEach((email) => {
-  const result = run({ 
-    ops: isEmail, 
-    ctx: { value: email, errors: [] }, 
-    api 
-  });
-  console.log(result);
-});
+// setup the chains you'll need
+const isEmail = /^\S+@\S+\.\S+$/.source;
+const login = string.pattern(isEmail).auth.createToken;
+
+// now you can run this chain against any number of values
+const result = run({ op: login, api, ctx: { value: 'test@email.com', errors: [] });
+
+// later if you want to add more constraints OR more functionality
+// you can just inject it anywhere in the chain gracefully without having to refactor
+// existing functionality. as long as you adhere to a strict contex approach you're gtg. 
+const login = 
+    string.pattern(isEmail).min(8).max(20).
+    auth.createToken.
+    email.send('welcome');
 ```
 
-### Combined and Async Operations
+## Gotchas
 
-Fluent APIs can be combined/chained and are capable of running async operations such as restful calls:
-
+#### Op chains are serializable
+You can serialize your op chains with `JSON.stringify`. This means you can store your ops and / or use them across systems by passing a serialized op to the run function.
 ```typescript
-const api = {
-  validate: stringMethods,
-  server: {
-    email: emailMethods,
-    user: userMethods,
-  },
-};
-
-// Combine the validate and server fluent apis
-const { validate, server } = fluent(api);
-
-// validate the string is an email
-// then try to register the user
-// then send a welcome email
-const register = 
-  validate.string.pattern(/^\S+@\S+.\S+$/.source).required.
-  server.user.register.
-  server.user.registered(a.email.welcome);
-
-const emails = ["test@bob.com", undefined];
-
-emails.forEach((email) => {
-  const result = run({ 
-    ops: register, 
-    ctx: { value: email, errors: [] }, 
-    api 
-  });
-  console.log(result);
-});
+const op = string.min(4).max(20).auth.createToken
+console.log(JSON.stringify(op));
+/**
+ * [ 
+ *     { method: "string.min", args: [4] }, 
+ *     { method: "string.max", args: [20] }, 
+ *     { method: "auth.createToken" }
+ * ];
+ */
 ```
 
-See the examples folder for more details.
-
-## Serializing & Sharing Operation Chains
-Operation chains can be serialized to `JSON`, which means they can be stored or shared acoess systems. Suppose you have a validation chain that is used to validate an input on the client. That chain can be stored to a database, then reused to validate on the server.
-
+#### You can switch APIs in your chain
+You can switch to another API anywhere in your chain by calling a root. 
 ```typescript
-
-const isEmail = validator.string.pattern(/^\S+@\S+\.\S+$/.source);
-console.log(JSON.stringify(isEmail, null, 2));
-// [{ method: 'string.pattern', args: '^\\S+@\\S+\\.\\S+$' }]
+string.min(8).number.even;
 ```
 
-## Be Creative
+#### Null param methods are not callable
+If you have functions that have no arguments defined, you reference them as a property in the chain, not a function call. Eg a `required` function without args is chained like this: `string.min(8).required`.
 
-In closing, fluent can be used for anything... be creative about it. If we think of it in terms of touring completeness we can create logical operand methods: 
+#### Async functions
+Methods are called in order and await for responses if they're asynchronous. If you're certain your chain has no promises, you don't need an await. If you're unsure, there's no harm in using await. 
 
-- `or(v.string.email, v.string.phone_numer).api.registerUser`
+#### Method namespacing
+You can have methods at any level... it's completely up to you.
+```typescript
+type FancyMethods = {
+    // let's create a logic or operator at root,
+    or: (...ops: any) => void, 
+    // a namespace for string methods
+    string: { 
+        min: (len: number) => void,
+         // a nested namespace for certain types of strings
+        email: {
+            corporate: () => void, 
+            gmail: () => void, 
+        }
+    },
+    auth: {
+        registerLead: () => void,
+    }
+}
 
-And even loops
-- `while(user.hasCheckoutItems, email.sendReminder, 1000)`
+// ... later
+const op = or(
+    string.email.corporate,
+    string.email.gmail
+).auth.registerLead;
+```
 
-Context can be anything you want. You can use an observable data struct for front end reactivity, a logger, a data object, transform operation etc.
+## Use Cases
 
-Some problem spaces that seem particularly suited to fluent apis: 
+In general any problem space that has complex and often varying business requirements is a good candidate. Some challenges that that seem particularly suited to fluent apis:
+
 - Data validation and sanitization
 - Chaining API calls with structured error handling
 - Implementing complex business logic
@@ -238,6 +184,20 @@ Some problem spaces that seem particularly suited to fluent apis:
 - Aggregating and processing data from multiple sources
 - Coordinating event-driven actions
 
+You can also get creative. Context can be anything that can hold props (for `run` and `ops`). It can be a function, suppose to log ops to datadog / sentry. It can be a reactive Proxy like a valtio store and trigger re-renders on your UI. It can hold many functions and store results for complex data transformations. 
+
+If you also think about touring completeness, you can create logical operands, looping at the root and math via methods. This can lead to extremely complex chains that retain their semantic legibility. This can lead to better cohesion and collaboration between development and business units eg: 
+
+```typescript
+const op = whileNotFinished(
+    if(string.email.corporate, email.monthlyReport).
+    if(string.email.gmail, email.monthlyUpdates).
+    everyStaff(email.chainResults)
+);
+
+const result = await run({ op, api, ctx });
+```
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
@@ -245,3 +205,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) f
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
+
+

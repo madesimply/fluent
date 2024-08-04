@@ -98,7 +98,7 @@ export function fluent<T extends Record<string, any>>(apiStructure: T): Combined
 }
 
 export const run = ({ op, ctx, api }: { op: any; ctx: any; api: any }): any | Promise<any> => {
-  const config = JSON.parse(JSON.stringify(op));
+  const config = typeof op === 'string' ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
 
   if (typeof ctx !== 'object') {
     throw new Error('The context object must be an object');

@@ -9,9 +9,7 @@
   "types": "dist/index.d.ts",
   "files": ["dist"],
   "scripts": {
-    "build": "tsup",
-    "build:examples": "tsup examples",
-    "example": "node examples/dist/index.js"
+    "build": "tsup"
   },
   "devDependencies": {
     "@types/node": "^22.1.0",

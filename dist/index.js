@@ -76,7 +76,7 @@ function fluent(apiStructure) {
   return rootProxy;
 }
 var run = ({ op, ctx, api }) => {
-  const config = JSON.parse(JSON.stringify(op));
+  const config = typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
   if (typeof ctx !== "object") {
     throw new Error("The context object must be an object");
   }
