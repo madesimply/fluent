@@ -195,18 +195,6 @@ emails.forEach((email) => {
 
 See the examples folder for more details.
 
-Don't be limited by these examples, fluent APIs are useful in many other areas such as:
-- Data validation and sanitization
-- Chaining API calls with structured error handling
-- Implementing complex business logic
-- Orchestrating multi-step workflows
-- Creating reusable and testable methods
-- Building dynamic query builders
-- Managing feature toggles and configurations
-- Handling user authentication and authorization flows
-- Aggregating and processing data from multiple sources
-- Coordinating event-driven actions
-
 ## Serializing & Sharing Operation Chains
 Operation chains can be serialized to `JSON`, which means they can be stored or shared acoess systems. Suppose you have a validation chain that is used to validate an input on the client. That chain can be stored to a database, then reused to validate on the server.
 
@@ -226,8 +214,21 @@ In closing, fluent can be used for anything... be creative about it. If we think
 And even loops
 - `while(user.hasCheckoutItems, email.sendReminder, 1000)`
 
+Context can be anything you want. You can use an observable data struct for front end reactivity, a logger, a data object, transform operation etc.
 
-Context can be anything you want. You can use an observable data struct for front end reactivity, a logger, a data object, transform operation etc. 
+Some problem spaces that seem particularly suited to fluent apis: 
+- Data validation and sanitization
+- Chaining API calls with structured error handling
+- Implementing complex business logic
+- Orchestrating multi-step workflows
+- Creating reusable and testable methods
+- Building dynamic query builders
+- Data processing with complex requirements
+- Managing feature toggles and configurations
+- Handling user authentication and authorization flows
+- Aggregating and processing data from multiple sources
+- Coordinating event-driven actions
+
 
 ## Contributing
 
