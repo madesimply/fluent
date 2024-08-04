@@ -2,6 +2,10 @@
 
 Fluent is a lightweight TypeScript library designed to help you build complex, strongly typed fluent APIs with ease. It provides a flexible and intuitive way to create and execute chains of operations, which can include validations, data transformations, API calls, and more. Fluent simplifies the process of constructing these operation chains. When used effectively, it allows you to write logic that reads like the business requirement equivalent, making it easier to align your code with business rules. Additionally, Fluent's programming paradigm encourages the use of small, reusable methods, which enhances testability and supports robust and reliable development.
 
+## Important
+
+This is very much in development. Please test things out and give feedback / make issues if something is broken OR there missing desired functionality.
+
 ## Motiviation
 
 [Fluent Interface](https://en.wikipedia.org/wiki/Fluent_interface) patterns can make your code very succinct and semantic. This can be extermely beneficial for complex business logic. But traditional fluent interface patterns have some challenged with [error capture](https://en.wikipedia.org/wiki/Fluent_interface#Errors_cannot_be_captured_at_compile_time), [debugging](https://en.wikipedia.org/wiki/Fluent_interface#Debugging_and_error_reporting), [logging](https://en.wikipedia.org/wiki/Fluent_interface#Logging), [subclassing](https://en.wikipedia.org/wiki/Fluent_interface#Subclasses), [maintenance](https://www.yegor256.com/2018/03/13/fluent-interfaces.html#:~:text=Fluent%20interfaces%20are%20good%20for%20users%2C%20but%20bad%20for%20library,an%20advantage%2C%20not%20a%20drawback.). Furthermore methods and their relationships must be known at the time you're building them, you have to make assumptions about how they'll be used. 
