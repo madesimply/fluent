@@ -136,13 +136,18 @@ You can use Fluent to create validator chains:
 
 ```typescript
 const api = {
-  validate: stringMethods,
+  validate: {
+    string: {
+      pattern: (regex: string) => void,
+      require: () => void,
+    }
+  },
 };
 
 const { validate } = fluent(api);
 
 // make sure this is a valid email
-const isEmail = validate.string.pattern(/^[^\s@]+@[^\s@]+.[^\s@]+$/).required;
+const isEmail = validate.string.pattern(/^[^\s@]+@[^\s@]+.[^\s@]+$/.source).required;
 
 const emails = ["test@email.com", undefined, 12324, "invalidemail"];
 
