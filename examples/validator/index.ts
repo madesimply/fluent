@@ -7,7 +7,7 @@ const api = {
 
 const { v } = fluent(api);
 
-const isEmail = v.string.pattern('/^[^\s@]+@[^\s@]+\.[^\s@]+$/').required;
+const isEmail = v.string.pattern(/^\S+@\S+\.\S+$/.source).required;
 
 const emails = [
   "test@email.com",

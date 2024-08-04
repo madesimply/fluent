@@ -101,7 +101,7 @@ function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
   return value instanceof Promise;
 }
 
-export const run = ({ ops, ctx, api }: { ops: any; ctx: any; api: any }): string | void | Promise<string | void> => {
+export const run = ({ ops, ctx, api }: { ops: any; ctx: any; api: any }): any | void | Promise<any | void> => {
   const config = JSON.parse(JSON.stringify(ops));
   ctx.api = api;
   let hasPromise = false;
