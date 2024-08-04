@@ -1,6 +1,6 @@
 # Fluent
 
-> [!WARNING] BETA  
+> [!WARNING]  
 > This is very much in beta mode. Expect breaking changes as things mature, meantime provide feedback, create issues or PRs. 
 
 
