@@ -1,0 +1,16 @@
+{
+  "name": "fluent",
+  "scripts": {
+    "build": "tsup",
+    "build:examples": "tsup examples",
+    "example": "node examples/dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.1.0",
+    "tsup": "^8.2.4"
+  },
+  "dependencies": {
+    "typescript": "^5.5.4"
+  },
+  "license": "UNLICENSED"
+}
