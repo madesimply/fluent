@@ -1,5 +1,13 @@
 {
   "name": "fluent",
+  "author": {
+    "name": "Paul Pomerleau",
+    "url": "https://github.com/paulpomerleau"
+  },
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "build:examples": "tsup examples",
@@ -12,5 +20,5 @@
   "dependencies": {
     "typescript": "^5.5.4"
   },
-  "license": "UNLICENSED"
+  "license": "MIT"
 }

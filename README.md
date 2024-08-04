@@ -234,6 +234,9 @@ Some problem spaces that seem particularly suited to fluent apis:
 - Aggregating and processing data from multiple sources
 - Coordinating event-driven actions
 
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
 
 ## Contributing
 
