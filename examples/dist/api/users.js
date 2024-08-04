@@ -105,27 +105,53 @@ var require_dist = __commonJS({
       rootProxy.toJSON = () => [];
       return rootProxy;
     }
-    function isPromise(value) {
-      return value instanceof Promise;
-    }
-    var run2 = ({ ops, ctx, api }) => {
-      const config = JSON.parse(JSON.stringify(ops));
-      ctx.api = api;
-      let hasPromise = false;
-      const results = config.map((item) => {
+    var run2 = ({ op, ctx, api }) => {
+      const config = JSON.parse(JSON.stringify(op));
+      if (typeof ctx !== "object") {
+        throw new Error("The context object must be an object");
+      }
+      if ("run" in ctx || "ops" in ctx) {
+        throw new Error('The context object cannot have properties named "run" or "ops"');
+      }
+      Object.defineProperties(ctx, {
+        run: {
+          value: (op2) => run2({ op: op2, ctx, api }),
+          enumerable: false,
+          writable: false,
+          configurable: false
+        },
+        ops: {
+          value: [],
+          enumerable: true,
+          writable: false,
+          configurable: false
+        }
+      });
+      const executeOperation = (item) => {
         const { method: path, args = [] } = item;
         const splitPath = path.split(".");
         const method = splitPath.reduce((acc, key) => acc[key], api);
-        const result = method(ctx, ...args);
-        if (isPromise(result)) {
-          hasPromise = true;
+        return method(ctx, ...args);
+      };
+      const executeChain = async (startIndex) => {
+        for (let i = startIndex; i < config.length; i++) {
+          const result = executeOperation(config[i]);
+          if (result instanceof Promise) {
+            const resolvedResult = await result;
+            ctx.ops.push({ path: config[i].method, args: config[i].args, result: resolvedResult });
+          } else {
+            ctx.ops.push({ path: config[i].method, args: config[i].args, result });
+          }
         }
-        return result;
-      });
-      if (hasPromise) {
-        return Promise.all(results).then(() => {
-          return ctx;
-        });
+        return ctx;
+      };
+      for (let i = 0; i < config.length; i++) {
+        const result = executeOperation(config[i]);
+        if (result instanceof Promise) {
+          return executeChain(i).then(() => ctx);
+        } else {
+          ctx.ops.push({ path: config[i].method, args: config[i].args, result });
+        }
       }
       return ctx;
     };

@@ -100,27 +100,53 @@ var require_dist = __commonJS({
       rootProxy.toJSON = () => [];
       return rootProxy;
     }
-    function isPromise(value) {
-      return value instanceof Promise;
-    }
-    var run3 = ({ ops: ops2, ctx: ctx2, api: api2 }) => {
-      const config = JSON.parse(JSON.stringify(ops2));
-      ctx2.api = api2;
-      let hasPromise = false;
-      const results = config.map((item) => {
+    var run3 = ({ op: op2, ctx: ctx2, api: api2 }) => {
+      const config = JSON.parse(JSON.stringify(op2));
+      if (typeof ctx2 !== "object") {
+        throw new Error("The context object must be an object");
+      }
+      if ("run" in ctx2 || "ops" in ctx2) {
+        throw new Error('The context object cannot have properties named "run" or "ops"');
+      }
+      Object.defineProperties(ctx2, {
+        run: {
+          value: (op22) => run3({ op: op22, ctx: ctx2, api: api2 }),
+          enumerable: false,
+          writable: false,
+          configurable: false
+        },
+        ops: {
+          value: [],
+          enumerable: true,
+          writable: false,
+          configurable: false
+        }
+      });
+      const executeOperation = (item) => {
         const { method: path, args = [] } = item;
         const splitPath = path.split(".");
         const method = splitPath.reduce((acc, key) => acc[key], api2);
-        const result = method(ctx2, ...args);
-        if (isPromise(result)) {
-          hasPromise = true;
+        return method(ctx2, ...args);
+      };
+      const executeChain = async (startIndex) => {
+        for (let i = startIndex; i < config.length; i++) {
+          const result = executeOperation(config[i]);
+          if (result instanceof Promise) {
+            const resolvedResult = await result;
+            ctx2.ops.push({ path: config[i].method, args: config[i].args, result: resolvedResult });
+          } else {
+            ctx2.ops.push({ path: config[i].method, args: config[i].args, result });
+          }
         }
-        return result;
-      });
-      if (hasPromise) {
-        return Promise.all(results).then(() => {
-          return ctx2;
-        });
+        return ctx2;
+      };
+      for (let i = 0; i < config.length; i++) {
+        const result = executeOperation(config[i]);
+        if (result instanceof Promise) {
+          return executeChain(i).then(() => ctx2);
+        } else {
+          ctx2.ops.push({ path: config[i].method, args: config[i].args, result });
+        }
       }
       return ctx2;
     };
@@ -179,6 +205,6 @@ var api = {
 };
 var { a } = (0, import_dist2.fluent)(api);
 var email = "bob@email.com";
-var ops = a.user.registered(a.email.checkin, a.email.welcome);
+var op = a.user.registered(a.email.checkin, a.email.welcome);
 var ctx = { value: email, errors: [] };
-console.log((0, import_dist2.run)({ ops, ctx, api }));
+console.log((0, import_dist2.run)({ op, ctx, api }));

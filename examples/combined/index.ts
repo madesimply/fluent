@@ -25,5 +25,5 @@ const emails = [
 ];
 
 emails.forEach(email => {
-  console.log(run({ ops: register, ctx: { value: email, errors: [] }, api }));
+  console.log(run({ op: register, ctx: { value: email, errors: [] }, api }));
 });

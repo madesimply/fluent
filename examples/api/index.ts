@@ -13,8 +13,8 @@ const { a } = fluent(api);
 
 const email = "bob@email.com";
 
-const ops = a.user.registered(a.email.checkin, a.email.welcome);
+const op = a.user.registered(a.email.checkin, a.email.welcome);
 
 const ctx = { value: email, errors: [] };
 
-console.log(run({ ops, ctx, api }));
+console.log(run({ op, ctx, api }));

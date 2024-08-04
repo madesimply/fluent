@@ -108,27 +108,53 @@ var require_dist = __commonJS({
       rootProxy.toJSON = () => [];
       return rootProxy;
     }
-    function isPromise(value) {
-      return value instanceof Promise;
-    }
-    var run5 = ({ ops: ops2, ctx: ctx2, api: api4 }) => {
-      const config = JSON.parse(JSON.stringify(ops2));
-      ctx2.api = api4;
-      let hasPromise = false;
-      const results = config.map((item) => {
+    var run5 = ({ op: op2, ctx: ctx2, api: api4 }) => {
+      const config = JSON.parse(JSON.stringify(op2));
+      if (typeof ctx2 !== "object") {
+        throw new Error("The context object must be an object");
+      }
+      if ("run" in ctx2 || "ops" in ctx2) {
+        throw new Error('The context object cannot have properties named "run" or "ops"');
+      }
+      Object.defineProperties(ctx2, {
+        run: {
+          value: (op22) => run5({ op: op22, ctx: ctx2, api: api4 }),
+          enumerable: false,
+          writable: false,
+          configurable: false
+        },
+        ops: {
+          value: [],
+          enumerable: true,
+          writable: false,
+          configurable: false
+        }
+      });
+      const executeOperation = (item) => {
         const { method: path, args = [] } = item;
         const splitPath = path.split(".");
         const method = splitPath.reduce((acc, key) => acc[key], api4);
-        const result = method(ctx2, ...args);
-        if (isPromise(result)) {
-          hasPromise = true;
+        return method(ctx2, ...args);
+      };
+      const executeChain = async (startIndex) => {
+        for (let i = startIndex; i < config.length; i++) {
+          const result = executeOperation(config[i]);
+          if (result instanceof Promise) {
+            const resolvedResult = await result;
+            ctx2.ops.push({ path: config[i].method, args: config[i].args, result: resolvedResult });
+          } else {
+            ctx2.ops.push({ path: config[i].method, args: config[i].args, result });
+          }
         }
-        return result;
-      });
-      if (hasPromise) {
-        return Promise.all(results).then(() => {
-          return ctx2;
-        });
+        return ctx2;
+      };
+      for (let i = 0; i < config.length; i++) {
+        const result = executeOperation(config[i]);
+        if (result instanceof Promise) {
+          return executeChain(i).then(() => ctx2);
+        } else {
+          ctx2.ops.push({ path: config[i].method, args: config[i].args, result });
+        }
       }
       return ctx2;
     };
@@ -187,7 +213,7 @@ var init_users = __esm({
 
 // examples/api/index.ts
 var api_exports = {};
-var import_dist2, api, a, email, ops, ctx;
+var import_dist2, api, a, email, op, ctx;
 var init_api = __esm({
   "examples/api/index.ts"() {
     import_dist2 = __toESM(require_dist());
@@ -201,9 +227,9 @@ var init_api = __esm({
     };
     ({ a } = (0, import_dist2.fluent)(api));
     email = "bob@email.com";
-    ops = a.user.registered(a.email.checkin, a.email.welcome);
+    op = a.user.registered(a.email.checkin, a.email.welcome);
     ctx = { value: email, errors: [] };
-    console.log((0, import_dist2.run)({ ops, ctx, api }));
+    console.log((0, import_dist2.run)({ op, ctx, api }));
   }
 });
 
@@ -272,7 +298,7 @@ var init_combined = __esm({
       void 0
     ];
     emails.forEach((email2) => {
-      console.log((0, import_dist3.run)({ ops: register2, ctx: { value: email2, errors: [] }, api: api2 }));
+      console.log((0, import_dist3.run)({ op: register2, ctx: { value: email2, errors: [] }, api: api2 }));
     });
   }
 });
@@ -295,8 +321,8 @@ var init_validator = __esm({
       12324,
       "invalidemail"
     ];
-    emails2.forEach((email2) => {
-      console.log((0, import_dist4.run)({ ops: isEmail, ctx: { value: email2 }, api: api3 }));
+    emails2.forEach(async (email2) => {
+      console.log((0, import_dist4.run)({ op: isEmail, ctx: { value: email2 }, api: api3 }));
     });
   }
 });

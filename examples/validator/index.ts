@@ -16,6 +16,6 @@ const emails = [
   "invalidemail",
 ];
 
-emails.forEach(email => {
-  console.log(run({ ops: isEmail, ctx: { value: email }, api }));
+emails.forEach(async email => {
+  console.log(run({ op: isEmail, ctx: { value: email }, api }));
 });

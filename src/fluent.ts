@@ -97,39 +97,60 @@ export function fluent<T extends Record<string, any>>(apiStructure: T): Combined
   return rootProxy;
 }
 
-function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
-  return value instanceof Promise;
-}
+export const run = ({ op, ctx, api }: { op: any; ctx: any; api: any }): any | Promise<any> => {
+  const config = JSON.parse(JSON.stringify(op));
 
-export const run = ({ ops, ctx, api }: { ops: any; ctx: any; api: any }): any | void | Promise<any | void> => {
-  const config = JSON.parse(JSON.stringify(ops));
+  if (typeof ctx !== 'object') {
+    throw new Error('The context object must be an object');
+  }
 
-  // add api to context as a non-enumerable property
-  Object.defineProperty(ctx, "api", {
-    value: api,
-    enumerable: false,
-    writable: false,
-    configurable: false
+  if ('run' in ctx || 'ops' in ctx) {
+    throw new Error('The context object cannot have properties named "run" or "ops"');
+  }
+
+  Object.defineProperties(ctx, {
+    run: {
+      value: (op: any) => run({ op, ctx, api }),
+      enumerable: false,
+      writable: false,
+      configurable: false
+    },
+    ops: {
+      value: [],
+      enumerable: true,
+      writable: false,
+      configurable: false
+    }
   });
 
-  let hasPromise = false;
-
-  const results = config.map(item => {
+  const executeOperation = (item: any) => {
     const { method: path, args = [] } = item;
     const splitPath = path.split(".");
     const method = splitPath.reduce((acc, key) => acc[key], api);
-    const result = method(ctx, ...args);
-    if (isPromise(result)) {
-      hasPromise = true;
-    }
-    return result;
-  });
+    return method(ctx, ...args);
+  };
 
-  if (hasPromise) {
-    return Promise.all(results).then(() => {
-      return ctx;
-    });
+  const executeChain = async (startIndex: number) => {
+    for (let i = startIndex; i < config.length; i++) {
+      const result = executeOperation(config[i]);
+      if (result instanceof Promise) {
+        const resolvedResult = await result;
+        ctx.ops.push({ path: config[i].method, args: config[i].args, result: resolvedResult });
+      } else {
+        ctx.ops.push({ path: config[i].method, args: config[i].args, result });
+      }
+    }
+    return ctx;
+  };
+
+  for (let i = 0; i < config.length; i++) {
+    const result = executeOperation(config[i]);
+    if (result instanceof Promise) {
+      return executeChain(i).then(() => ctx) as Promise<any>;
+    } else {
+      ctx.ops.push({ path: config[i].method, args: config[i].args, result });
+    }
   }
 
-  return ctx;
+  return ctx as any;
 };
