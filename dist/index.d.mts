@@ -23,9 +23,13 @@ type Ctx = {
 } & {
     [key: string]: any;
 };
+type ExcludeProps<T, K extends keyof any> = {
+    [P in keyof T as P extends K ? never : P]: T[P];
+};
+type NoOpsOrRun<T> = ExcludeProps<T, 'ops' | 'run'>;
 declare const run: ({ op, ctx: _ctx, api }: {
     op: any;
-    ctx: Omit<Ctx, "ops" | "run">;
+    ctx: NoOpsOrRun<Ctx>;
     api: any;
 }) => any | Promise<any>;
 

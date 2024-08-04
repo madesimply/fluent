@@ -104,7 +104,13 @@ export type Ctx = {
   [key: string]: any;
 };
 
-export const run = ({ op, ctx: _ctx, api }: { op: any; ctx: Omit<Ctx, 'ops' | 'run'>; api: any }): any | Promise<any> => {
+type ExcludeProps<T, K extends keyof any> = {
+  [P in keyof T as P extends K ? never : P]: T[P]
+};
+
+type NoOpsOrRun<T> = ExcludeProps<T, 'ops' | 'run'>;
+
+export const run = ({ op, ctx: _ctx, api }: { op: any; ctx: NoOpsOrRun<Ctx>; api: any }): any | Promise<any> => {
   const config = typeof op === 'string' ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
 
   if (typeof _ctx !== 'object') {
