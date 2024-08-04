@@ -16,13 +16,83 @@ npm install fluent
 
 To create a fluent API, use the fluent function and pass in your API structure. The API structure defines the available methods and their expected behavior.
 
+Here we'll create a validator with a namespace for `string` and some chainable methods `min` and `max` for further checks. Well use the context `value` and `errors` props you could do whatever you want with the context. Note we're not throwing any errors, rather we're checking for them. We want to continue execution because we don't know what will happen next in the chain.
+
+```typescript
+type Context = {
+  value: any,
+  errors: string[],
+}
+
+const string = (ctx: any) => {
+  if (typeof ctx.value !== "string") {
+    ctx.errors.push("Value must be a string");
+  }
+};
+
+const min = (ctx: any, len: number) => {
+  string(ctx);
+  if (!ctx.errors.length && ctx.value.length < len) {
+    ctx.errors.push("String is too short");
+  }
+}
+
+const max = (ctx: any, len: number) => {
+  string(ctx);
+  if (!ctx.errors.length && ctx.value.length > len) {
+    ctx.errors.push("String is too long");
+  }
+}
+
+export type Methods = {
+  string: {
+    min: (len: number) => void,
+    max: (len: number) => void,
+  };
+};
+
+export const methods = {
+  string: {
+    min,
+    max,
+  },
+};
+```
+
 ## Building an Operation Chain
 
 Once you have created the fluent API, you can build an operation chain by calling the methods in a fluent manner, chaining one method call after another.
 
+```typescript
+
+const api = {
+  validate: methods as Methods
+}
+
+const { validate } = fluent(api);
+
+```
+What you get is a fully typed exucition chain of all the methods you provided.
+```typescript
+validate.string.min(2).max(8);
+```
+
 ## Executing the Operations
 
 To execute the operations defined in your chain, use the run function. This function takes the operation chain, context, and API structure as parameters.
+
+```typescript
+// initialize the context
+
+const ctx = { value: 'this string is way too long', errors: [] };
+const ops = validate.string.min(2).max(10);
+
+const result = run({ api, ctx, ops })
+
+console.log(result) 
+// { value: 'this string is way too long', errors: [ 'String is too long' ] }
+
+```
 
 # API Reference
 
