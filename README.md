@@ -4,7 +4,7 @@ Fluent is a lightweight TypeScript library designed to help you build complex, s
 
 ## Important
 
-This is very much in development. Please test things out and give feedback / make issues if something is broken OR there missing desired functionality.
+This is very much in development. Please test things out and give feedback / make issues if something is broken OR there missing desired functionality. If this becomes popular it will likely change homes. We also intend to move this to a monorepo and setup for open-source community apis (validators, operands and other common tools we can all share).
 
 ## Motiviation
 
