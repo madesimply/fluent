@@ -70,7 +70,13 @@ export function fluent<T extends Record<string, any>>(apiStructure: T): Combined
       }
     };
 
-    const proxy = new Proxy(function () { }, handler);
+    const isFunction = typeof currentTarget === "function";
+    const func = isFunction ? (...args: any[]) => {
+      calls.push({ method: currentPath.join('.'), args });
+      return createProxy(calls, currentPath, currentTarget);
+    } : () => { };
+
+    const proxy = new Proxy(func, handler);
     (proxy as any).toJSON = () => calls;
 
     return proxy;
@@ -81,6 +87,7 @@ export function fluent<T extends Record<string, any>>(apiStructure: T): Combined
       if (prop === 'toJSON') {
         return () => [];
       }
+
       return createProxy([], [prop as string], apiStructure[prop as string]);
     }
   }) as CombinedFluentApi<T>;
