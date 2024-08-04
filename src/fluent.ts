@@ -97,16 +97,25 @@ export function fluent<T extends Record<string, any>>(apiStructure: T): Combined
   return rootProxy;
 }
 
-export const run = ({ op, ctx, api }: { op: any; ctx: any; api: any }): any | Promise<any> => {
+export type Ctx = {
+  run: (op: any) => any;
+  ops: Array<{ path: string; args: any[]; result?: any }>;
+} & {
+  [key: string]: any;
+};
+
+export const run = ({ op, ctx: _ctx, api }: { op: any; ctx: Omit<Ctx, 'ops' | 'run'>; api: any }): any | Promise<any> => {
   const config = typeof op === 'string' ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
 
-  if (typeof ctx !== 'object') {
+  if (typeof _ctx !== 'object') {
     throw new Error('The context object must be an object');
   }
 
-  if ('run' in ctx || 'ops' in ctx) {
+  if ('run' in _ctx || 'ops' in _ctx) {
     throw new Error('The context object cannot have properties named "run" or "ops"');
   }
+
+  const ctx = _ctx as Ctx;
 
   Object.defineProperties(ctx, {
     run: {
