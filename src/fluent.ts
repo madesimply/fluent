@@ -103,7 +103,15 @@ function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
 
 export const run = ({ ops, ctx, api }: { ops: any; ctx: any; api: any }): any | void | Promise<any | void> => {
   const config = JSON.parse(JSON.stringify(ops));
-  ctx.api = api;
+
+  // add api to context as a non-enumerable property
+  Object.defineProperty(ctx, "api", {
+    value: api,
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
+
   let hasPromise = false;
 
   const results = config.map(item => {

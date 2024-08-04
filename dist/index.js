@@ -80,7 +80,12 @@ function isPromise(value) {
 }
 var run = ({ ops, ctx, api }) => {
   const config = JSON.parse(JSON.stringify(ops));
-  ctx.api = api;
+  Object.defineProperty(ctx, "api", {
+    value: api,
+    enumerable: false,
+    writable: false,
+    configurable: false
+  });
   let hasPromise = false;
   const results = config.map((item) => {
     const { method: path, args = [] } = item;
