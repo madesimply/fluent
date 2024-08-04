@@ -147,7 +147,7 @@ const api = {
 const { validate } = fluent(api);
 
 // make sure this is a valid email
-const isEmail = validate.string.pattern(/^[^\s@]+@[^\s@]+.[^\s@]+$/.source).required;
+const isEmail = validate.string.pattern(/^\S+@\S+.\S+$/.source).required;
 
 const emails = ["test@email.com", undefined, 12324, "invalidemail"];
 
@@ -182,7 +182,7 @@ const { validate, server } = fluent(api);
 // then try to register the user
 // then send a welcome email
 const register = 
-  validate.string.pattern(/^\S+@\S+.\S+$/).required.
+  validate.string.pattern(/^\S+@\S+.\S+$/.source).required.
   server.user.register.
   server.user.registered(a.email.welcome);
 
