@@ -77,12 +77,6 @@ function fluent(apiStructure) {
 }
 var run = ({ op, ctx: _ctx, api }) => {
   const config = typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
-  if (typeof _ctx !== "object") {
-    throw new Error("The context object must be an object");
-  }
-  if ("run" in _ctx || "ops" in _ctx) {
-    throw new Error('The context object cannot have properties named "run" or "ops"');
-  }
   const ctx = _ctx;
   Object.defineProperties(ctx, {
     run: {
