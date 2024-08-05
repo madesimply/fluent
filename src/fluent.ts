@@ -108,20 +108,22 @@ export const run = ({ op, ctx: _ctx, api }: { op: any; ctx: RunCtx; api: any }):
 
   const ctx = _ctx as Ctx;
 
-  Object.defineProperties(ctx, {
-    run: {
-      value: (op: any) => run({ op, ctx, api }),
-      enumerable: false,
-      writable: false,
-      configurable: false
-    },
-    ops: {
-      value: [],
-      enumerable: true,
-      writable: false,
-      configurable: false
-    }
-  });
+  if (!ctx.run && !ctx.ops) {
+    Object.defineProperties(ctx, {
+      run: {
+        value: (op: any) => run({ op, ctx, api }),
+        enumerable: false,
+        writable: false,
+        configurable: false
+      },
+      ops: {
+        value: [],
+        enumerable: true,
+        writable: false,
+        configurable: false
+      }
+    });
+  }
 
   const executeOperation = (item: any) => {
     const { method: path, args = [] } = item;
