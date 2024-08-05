@@ -92,8 +92,8 @@ export function fluent<T extends Record<string, any>>(apiStructure: T): Combined
 }
 
 export type Ctx = {
-  run?: (op: any) => any;
-  ops?: Array<{ path: string; args: any[]; result?: any }>;
+  run: (op: any) => any;
+  ops: Array<{ path: string; args: any[]; result?: any }>;
 } & {
   [key: string]: any;
 };
@@ -114,10 +114,7 @@ export const run = ({ op, ctx: _ctx, api }: { op: any; ctx: RunCtx; api: any }):
     throw new Error('The context object cannot have properties named "run" or "ops"');
   }
 
-  const ctx = _ctx as Ctx & {
-    run: (op: any) => any;
-    ops: Array<{ path: string; args: any[]; result: any }>;
-  };
+  const ctx = _ctx as Ctx;
 
   Object.defineProperties(ctx, {
     run: {
