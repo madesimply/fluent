@@ -133,7 +133,7 @@ const loginThenEmail =
     email.send('welcome');
 
 ```
-See [BATCH_USER_REGISTRATION](BATCH_USER_REGISTRATION.md) for more advanced setup.
+See the [batch user registration example](./docs/BATCH_USER_REGISTRATION.md) for more a more complete / advanced setup.
 
 #### You can switch APIs in your chain
 You can switch to another API anywhere in your chain by calling a root. 
