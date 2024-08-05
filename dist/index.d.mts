@@ -1,10 +1,9 @@
 type AddApiKeys<T, U> = {
-    [K in keyof U]: FluentApi<U[K], U>;
+    [K in keyof T]: T[K] extends (...args: infer P) => infer R ? P extends [infer Ctx, ...infer Rest] ? (...args: Rest) => AddConfigPropAndReturn<U, U> & AddApiKeys<T, U> : AddConfigPropAndReturn<U, U> & AddApiKeys<T, U> : AddConfigPropAndReturn<T[K], U> & AddApiKeys<T, U>;
 };
-type AddConfigPropAndReturn<T, U> = T extends (ctx: any, ...args: infer A) => any ? (...args: A) => AddConfigPropAndReturn<U, U> & AddApiKeys<OmitFirstArg<T>, U> : {
-    [P in keyof T]: T[P] extends (ctx: any, ...args: infer A) => any ? (...args: A) => AddConfigPropAndReturn<Omit<T, P>, U> & AddApiKeys<OmitFirstArg<T[P]>, U> : AddConfigPropAndReturn<T[P], U> & AddApiKeys<T[P], U>;
+type AddConfigPropAndReturn<T, U> = T extends (...args: any[]) => any ? Parameters<T> extends [infer Ctx, ...infer Rest] ? ((...args: Rest) => AddConfigPropAndReturn<U, U> & AddApiKeys<T, U>) & AddApiKeys<T, U> : AddConfigPropAndReturn<U, U> & AddApiKeys<T, U> : {
+    [P in keyof T]: T[P] extends (...args: any[]) => any ? Parameters<T[P]> extends [infer Ctx, ...infer Rest] ? ((...args: Rest) => AddConfigPropAndReturn<Omit<T, P>, U> & AddApiKeys<T, U>) & AddApiKeys<T, U> : AddConfigPropAndReturn<Omit<T, P>, U> & AddApiKeys<T, U> & T[P] : AddConfigPropAndReturn<T[P], U> & AddApiKeys<T, U>;
 } & AddApiKeys<T, U>;
-type OmitFirstArg<T> = T extends (ctx: any, ...args: infer A) => infer R ? (...args: A) => R : T;
 type FluentApi<V, U> = AddConfigPropAndReturn<V, U>;
 type CombinedFluentApi<T> = {
     [K in keyof T]: FluentApi<T[K], T>;
@@ -36,6 +35,6 @@ declare const run: ({ op, ctx: _ctx, api }: {
     op: any;
     ctx: RunCtx;
     api: any;
-}) => any | Promise<any>;
+}) => Promise<any>;
 
-export { type AddApiKeys, type AddConfigPropAndReturn, type ApiCall, type CombinedFluentApi, type Ctx, type FluentApi, fluent, run };
+export { type AddConfigPropAndReturn, type ApiCall, type CombinedFluentApi, type Ctx, type FluentApi, fluent, run };

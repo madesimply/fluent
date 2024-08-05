@@ -49,7 +49,7 @@ function fluent(apiStructure) {
   rootProxy.toJSON = () => [];
   return rootProxy;
 }
-var run = ({ op, ctx: _ctx, api }) => {
+var run = async ({ op, ctx: _ctx, api }) => {
   const config = typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
   const ctx = _ctx;
   if (!ctx.run && !ctx.ops) {
@@ -68,31 +68,15 @@ var run = ({ op, ctx: _ctx, api }) => {
       }
     });
   }
-  const executeOperation = (item) => {
+  const executeOperation = async (item) => {
     const { method: path, args = [] } = item;
     const splitPath = path.split(".");
     const method = splitPath.reduce((acc, key) => acc[key], api);
     return method(ctx, ...args);
   };
-  const executeChain = async (startIndex) => {
-    for (let i = startIndex; i < config.length; i++) {
-      const result = executeOperation(config[i]);
-      if (result instanceof Promise) {
-        const resolvedResult = await result;
-        ctx.ops.push({ path: config[i].method, args: config[i].args, result: resolvedResult });
-      } else {
-        ctx.ops.push({ path: config[i].method, args: config[i].args, result });
-      }
-    }
-    return ctx;
-  };
   for (let i = 0; i < config.length; i++) {
-    const result = executeOperation(config[i]);
-    if (result instanceof Promise) {
-      return executeChain(i).then(() => ctx);
-    } else {
-      ctx.ops.push({ path: config[i].method, args: config[i].args, result });
-    }
+    const result = await executeOperation(config[i]);
+    ctx.ops.push({ path: config[i].method, args: config[i].args, result });
   }
   return ctx;
 };

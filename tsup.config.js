@@ -1,7 +1,6 @@
 import { defineConfig } from 'tsup'
 
-export default defineConfig((options) => {
-  const isExamples = (options?.entry || []).includes('examples');
+export default defineConfig(() => {
   return {
     entry: [ 'src/index.ts' ],
     outDir: 'dist',

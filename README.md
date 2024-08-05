@@ -38,7 +38,7 @@ import { fluent, run, Ctx } from "fluent"
  *     [key: string]: any - add whatever you want
  * }
  */
-interface Context extends Ctx {
+type Context = Ctx & {
     value: any; // we'll use the value key to set our input
     errors: string[]; // let's track any errors here
     token: string | null; // we'll store the token here
@@ -104,8 +104,10 @@ const login = string.pattern(isEmail).auth.createToken;
 const ctx = { value: 'test@email.com', errors: [] };
 
 // now you can run this chain against any number of values
-const result = run({ op: login, api, ctx });
-console.log(result);
+// run functions always return a promise
+run({ op: login, api, ctx }).then(result => {
+    console.log(result);
+})
 /** 
  * output:
  * {
@@ -131,6 +133,7 @@ const loginThenEmail =
     email.send('welcome');
 
 ```
+See [BATCH_USER_REGISTRATION](BATCH_USER_REGISTRATION.md) for more advanced setup.
 
 #### You can switch APIs in your chain
 You can switch to another API anywhere in your chain by calling a root. 
