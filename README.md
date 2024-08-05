@@ -158,10 +158,10 @@ You can have methods at any level... it's completely up to you.
 ```typescript
 type FancyMethods = {
     // let's create a logic or operator at root,
-    or: (...ops: any) => void, 
+    or: ({ ctx, run }, ...ops: any) => void, 
     // a namespace for string methods
     string: { 
-        min: (len: number) => void,
+        min: ({ ctx, run }, len: number) => void,
          // a nested namespace for certain types of strings
         email: {
             corporate: () => void, 
