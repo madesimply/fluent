@@ -28,7 +28,7 @@ npm install https://github.com/paulpomerleau/fluent
 
 ```typescript
 // import your library and types 
-import { fluent, run, Ctx } from "./fluent"
+import { fluent, run, Ctx } from "fluent"
 
 /** 
  * setup context types, ctx is passed to each method
@@ -41,6 +41,7 @@ import { fluent, run, Ctx } from "./fluent"
 interface Context extends Ctx {
     value: any; // we'll use the value key to set our input
     errors: string[]; // let's track any errors here
+    token: string | null; // we'll store the token here
 }
 
 /**
