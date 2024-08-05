@@ -85,7 +85,7 @@ var run = async ({ op, ctx: _ctx, api }) => {
     const { method: path, args = [] } = item;
     const splitPath = path.split(".");
     const method = splitPath.reduce((acc, key) => acc[key], api);
-    return method({ ctx, run }, ...args, runHelper);
+    return method({ ctx, run: runHelper }, ...args);
   };
   for (let i = 0; i < config.length; i++) {
     await executeOperation(config[i]);
