@@ -105,7 +105,6 @@ type RunCtx = Omit<Ctx, "run" | "ops"> & {
 
 export const run = ({ op, ctx: _ctx, api }: { op: any; ctx: RunCtx; api: any }): any | Promise<any> => {
   const config = typeof op === 'string' ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
-
   const ctx = _ctx as Ctx;
 
   if (!ctx.run && !ctx.ops) {
@@ -148,11 +147,12 @@ export const run = ({ op, ctx: _ctx, api }: { op: any; ctx: RunCtx; api: any }):
   for (let i = 0; i < config.length; i++) {
     const result = executeOperation(config[i]);
     if (result instanceof Promise) {
-      return executeChain(i).then(() => ctx) as Promise<any>;
+      // Execute the rest of the operations asynchronously
+      return executeChain(i).then(() => ctx);
     } else {
       ctx.ops.push({ path: config[i].method, args: config[i].args, result });
     }
   }
 
-  return ctx as any;
+  return ctx;
 };
