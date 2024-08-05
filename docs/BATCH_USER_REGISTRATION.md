@@ -244,7 +244,7 @@ const op = each(
 );
 
 // setup the context
-const ctx: Omit<Context, "run" | "ops"> = { 
+const ctx: Context = { 
   data, 
   current: { record: {}, path: "", value: "" }, 
   errors: [] 
