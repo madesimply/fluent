@@ -28,7 +28,7 @@ npm install https://github.com/paulpomerleau/fluent
 
 ```typescript
 // import your library and types 
-import { fluent, run, Ctx } from "fluent"
+import { fluent, run, Ctx } from "./fluent"
 
 /** 
  * setup context types, ctx is passed to each method
@@ -37,10 +37,10 @@ import { fluent, run, Ctx } from "fluent"
  *     run: (method) => any | Promise<any> - lets you run methods from within methods
  *     [key: string]: any - add whatever you want
  * }
- */ .
-type Context = Ctx & {
+ */
+interface Context extends Ctx {
     value: any; // we'll use the value key to set our input
-    errors: []; // let's track any errors here
+    errors: string[]; // let's track any errors here
 }
 
 /**
@@ -50,31 +50,31 @@ type Context = Ctx & {
  
 // for the string we'll check for length and pattern
 type VString = {
-    min: (len: number) => void, 
-    max: (len: number) => void, 
-    pattern: (regex: string) => void,
+    min: (ctx: Context, len: number) => void, 
+    max: (ctx: Context, len: number) => void, 
+    pattern: (ctx: Context, regex: string) => void,
 }
 
 // helper for all string methods
-const isString = (ctx: Context) {
+const isString = (ctx: Context) => {
     const isValid = typeof ctx.value === 'string';
     if (!isValid) ctx.errors.push('Invalid string');
     return isValid;
 }
 
-const string: VString = {
-    min: (ctx: Context, len: number) {
+const stringMethods: VString = {
+    min(ctx: Context, len: number) {
         if(!isString(ctx) || ctx.value.length < len) {
             ctx.errors.push('String is too short');
         }
     },
-    max: (ctx: Context, len: number) {
+    max(ctx: Context, len: number) {
         if(!isString(ctx) || ctx.value.length > len) {
             ctx.errors.push('String is too long');
         }
     },
-    pattern: (ctx: Context, pattern: string) {
-        const regex = new Regex(pattern);
+    pattern(ctx: Context, pattern: string) {
+        const regex = new RegExp(pattern);
         if (!isString(ctx) || !regex.test(ctx.value)) {
             ctx.errors.push('String does not match expected pattern');
         }
@@ -83,50 +83,52 @@ const string: VString = {
 
 // for the auth we'll expose a createToken method
 type Auth = {
-    createToken: () => void,
+    createToken: (ctx: Context) => void,
 }
 
-const auth: Auth = {
-    createToken: (ctx: Context) {
+const authMethods: Auth = {
+    createToken(ctx: Context) {
         ctx.token = ctx.errors.length ? 
             null : (Math.random() + 1).toString(36).substring(7);
     }
 }
 
 // now we can create our fluent api
-const api = { string, auth };
+const api = { string: stringMethods, auth: authMethods };
 const { string, auth } = fluent(api);
 
 // setup the chains you'll need
 const isEmail = /^\S+@\S+\.\S+$/.source;
 const login = string.pattern(isEmail).auth.createToken;
+const ctx = { value: 'test@email.com', errors: [] };
 
 // now you can run this chain against any number of values
-const result = run({ op: login, api, ctx: { value: 'test@email.com', errors: [] });
+const result = run({ op: login, api, ctx });
+console.log(result);
+/** 
+ * output:
+ * {
+ *   value: 'test@email.com',
+ *   errors: [],
+ *   ops: [
+ *     { path: 'string.pattern', args: [Array], result: undefined },
+ *     { path: 'auth.createToken', args: undefined, result: undefined }
+ *   ],
+ *   token: 'p8ze5g'
+ * }
+ */
 
-// later if you want to add more constraints OR more functionality
-// you can just inject it anywhere in the chain gracefully without having to refactor
-// existing functionality. as long as you adhere to a strict contex approach you're gtg. 
-const login = 
+/** 
+ *  later it's graceful to add more constraints or functionality
+ *  for example, if you wanted to add an email.send method
+ *  you could create an email api then inject it into the chain
+ */ 
+
+const loginThenEmail = 
     string.pattern(isEmail).min(8).max(20).
     auth.createToken.
     email.send('welcome');
-```
 
-## Gotchas
-
-#### Op chains are serializable
-You can serialize your op chains with `JSON.stringify`. This means you can store your ops and / or use them across systems by passing a serialized op to the run function.
-```typescript
-const op = string.min(4).max(20).auth.createToken
-console.log(JSON.stringify(op));
-/**
- * [ 
- *     { method: "string.min", args: [4] }, 
- *     { method: "string.max", args: [20] }, 
- *     { method: "auth.createToken" }
- * ];
- */
 ```
 
 #### You can switch APIs in your chain
