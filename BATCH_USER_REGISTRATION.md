@@ -1,6 +1,6 @@
-## Data Processing Example
+## Batch User Processing
 
-Here's a more complete example for hypothetical data processing. 
+Here's a more complete example for hypothetical user processing job.
 
 ```
 └── src
