@@ -52,31 +52,17 @@ function fluent(apiStructure) {
 var run = async ({ op, ctx: _ctx, api }) => {
   const config = typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
   const ctx = _ctx;
-  if (!ctx.run && !ctx.ops) {
-    Object.defineProperties(ctx, {
-      run: {
-        value: (op2) => run({ op: op2, ctx, api }),
-        enumerable: false,
-        writable: false,
-        configurable: false
-      },
-      ops: {
-        value: [],
-        enumerable: true,
-        writable: false,
-        configurable: false
-      }
-    });
-  }
+  const runHelper = async (op2) => {
+    return await run({ op: op2, ctx, api });
+  };
   const executeOperation = async (item) => {
     const { method: path, args = [] } = item;
     const splitPath = path.split(".");
     const method = splitPath.reduce((acc, key) => acc[key], api);
-    return method(ctx, ...args);
+    return method({ ctx, run }, ...args, runHelper);
   };
   for (let i = 0; i < config.length; i++) {
-    const result = await executeOperation(config[i]);
-    ctx.ops.push({ path: config[i].method, args: config[i].args, result });
+    await executeOperation(config[i]);
   }
   return ctx;
 };

@@ -1,23 +1,23 @@
 type AddApiKeys<T, U> = {
-  [K in keyof T]: T[K] extends (...args: infer P) => infer R
+  [K in keyof U]: U[K] extends (...args: infer P) => any
     ? P extends [infer Ctx, ...infer Rest]
-      ? (...args: Rest) => AddConfigPropAndReturn<U, U> & AddApiKeys<T, U>
-      : AddConfigPropAndReturn<U, U> & AddApiKeys<T, U>
-    : AddConfigPropAndReturn<T[K], U> & AddApiKeys<T, U>;
+      ? (...args: Rest) => AddConfigPropAndReturn<U, U>
+      : AddConfigPropAndReturn<U, U>
+    : AddConfigPropAndReturn<U[K], U>;
 };
 
 export type AddConfigPropAndReturn<T, U> = T extends (...args: any[]) => any
   ? Parameters<T> extends [infer Ctx, ...infer Rest]
-    ? ((...args: Rest) => AddConfigPropAndReturn<U, U> & AddApiKeys<T, U>) & AddApiKeys<T, U>
+    ? ((...args: Rest) => AddConfigPropAndReturn<U, U>) & AddApiKeys<T, U>
     : AddConfigPropAndReturn<U, U> & AddApiKeys<T, U>
   : {
       [P in keyof T]: T[P] extends (...args: any[]) => any
         ? Parameters<T[P]> extends [infer Ctx, ...infer Rest]
-          ? ((...args: Rest) => AddConfigPropAndReturn<Omit<T, P>, U> & AddApiKeys<T, U>) & AddApiKeys<T, U>
-          : AddConfigPropAndReturn<Omit<T, P>, U> & AddApiKeys<T, U> & T[P]
-        : AddConfigPropAndReturn<T[P], U> & AddApiKeys<T, U>;
+          ? ((...args: Rest) => AddConfigPropAndReturn<U, U>) & AddApiKeys<T, U>
+          : AddConfigPropAndReturn<U, U> & AddApiKeys<T, U> & T[P]
+        : AddConfigPropAndReturn<T[P], U>;
     } & AddApiKeys<T, U>;
-    
+
 export type FluentApi<V, U> = AddConfigPropAndReturn<V, U>;
 
 export type CombinedFluentApi<T> = {
@@ -97,49 +97,25 @@ export function fluent<T extends Record<string, any>>(apiStructure: T): Combined
   return rootProxy;
 }
 
-export type Ctx = {
-  run: (op: any) => any;
-  ops: Array<{ path: string; args: any[]; result?: any }>;
-} & {
-  [key: string]: any;
-};
+type Ctx = any;
 
-type RunCtx = Omit<Ctx, "run" | "ops"> & {
-  run?: (op: any) => any;
-  ops?: Array<{ path: string; args: any[]; result?: any }>;
-};
-
-export const run = async ({ op, ctx: _ctx, api }: { op: any; ctx: RunCtx; api: any }): Promise<any> => {
+export const run = async ({ op, ctx: _ctx, api }: { op: any; ctx: Ctx; api: any }): Promise<any> => {
   const config = typeof op === 'string' ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
   const ctx = _ctx as Ctx;
 
-  if (!ctx.run && !ctx.ops) {
-    Object.defineProperties(ctx, {
-      run: {
-        value: (op: any) => run({ op, ctx, api }),
-        enumerable: false,
-        writable: false,
-        configurable: false
-      },
-      ops: {
-        value: [],
-        enumerable: true,
-        writable: false,
-        configurable: false
-      }
-    });
+  const runHelper = async (op: any) => {
+    return await run({ op, ctx, api });
   }
 
   const executeOperation = async (item: any) => {
     const { method: path, args = [] } = item;
     const splitPath = path.split(".");
     const method = splitPath.reduce((acc, key) => acc[key], api);
-    return method(ctx, ...args);
+    return method({ctx, run }, ...args, runHelper);
   };
 
   for (let i = 0; i < config.length; i++) {
-    const result = await executeOperation(config[i]);
-    ctx.ops.push({ path: config[i].method, args: config[i].args, result });
+    await executeOperation(config[i]);
   }
 
   return ctx;

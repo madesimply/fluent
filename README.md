@@ -28,20 +28,30 @@ npm install https://github.com/paulpomerleau/fluent
 
 ```typescript
 // import your library and types 
-import { fluent, run, Ctx } from "fluent"
+import { fluent, run } from "./fluent"
 
 /** 
- * setup context types, ctx is passed to each method
+ * setup context type (can be anything)
+ * context is passed to all methods in the chain
+ * and retuned at the end
+ * 
  * type Ctx = {
- *     ops: { method: 'path', args: any, result: any }[] - used to track execution history
- *     run: (method) => any | Promise<any> - lets you run methods from within methods
  *     [key: string]: any - add whatever you want
  * }
  */
-type Context = Ctx & {
+type Context = {
     value: any; // we'll use the value key to set our input
     errors: string[]; // let's track any errors here
     token: string | null; // we'll store the token here
+}
+
+/**
+ * along with the context, methods are passed an run function
+ * this function allows you to run other ops in the chain
+ */
+type Opts = {
+  ctx: Context;
+  run?: (op: any) => Promise<any>;
 }
 
 /**
@@ -51,9 +61,9 @@ type Context = Ctx & {
  
 // for the string we'll check for length and pattern
 type VString = {
-    min: (ctx: Context, len: number) => void, 
-    max: (ctx: Context, len: number) => void, 
-    pattern: (ctx: Context, regex: string) => void,
+    min: (opts: Opts, len: number) => void, 
+    max: (opts: Opts, len: number) => void, 
+    pattern: (opts: Opts, regex: string) => void,
 }
 
 // helper for all string methods
@@ -64,32 +74,32 @@ const isString = (ctx: Context) => {
 }
 
 const stringMethods: VString = {
-    min(ctx: Context, len: number) {
-        if(!isString(ctx) || ctx.value.length < len) {
-            ctx.errors.push('String is too short');
+    min(opts: Opts, len: number) {
+        if(!isString(opts.ctx) || opts.ctx.value.length < len) {
+            opts.ctx.errors.push('String is too short');
         }
     },
-    max(ctx: Context, len: number) {
-        if(!isString(ctx) || ctx.value.length > len) {
-            ctx.errors.push('String is too long');
+    max(opts: Opts, len: number) {
+        if(!isString(opts.ctx) || opts.ctx.value.length > len) {
+            opts.ctx.errors.push('String is too long');
         }
     },
-    pattern(ctx: Context, pattern: string) {
+    pattern(opts: Opts, pattern: string) {
         const regex = new RegExp(pattern);
-        if (!isString(ctx) || !regex.test(ctx.value)) {
-            ctx.errors.push('String does not match expected pattern');
+        if (!isString(opts.ctx) || !regex.test(opts.ctx.value)) {
+            opts.ctx.errors.push('String does not match expected pattern');
         }
     }
 }
 
 // for the auth we'll expose a createToken method
 type Auth = {
-    createToken: (ctx: Context) => void,
+    createToken: (opts: Opts) => void,
 }
 
 const authMethods: Auth = {
-    createToken(ctx: Context) {
-        ctx.token = ctx.errors.length ? 
+    createToken(opts: Opts) {
+        opts.ctx.token = opts.ctx.errors.length ? 
             null : (Math.random() + 1).toString(36).substring(7);
     }
 }
@@ -113,10 +123,6 @@ run({ op: login, api, ctx }).then(result => {
  * {
  *   value: 'test@email.com',
  *   errors: [],
- *   ops: [
- *     { path: 'string.pattern', args: [Array], result: undefined },
- *     { path: 'auth.createToken', args: undefined, result: undefined }
- *   ],
  *   token: 'p8ze5g'
  * }
  */
@@ -190,7 +196,7 @@ In general any problem space that has complex and often varying business require
 - Aggregating and processing data from multiple sources
 - Coordinating event-driven actions
 
-You can also get creative. Context can be anything that can hold props (for `run` and `ops`). It can be a function, suppose to log ops to datadog / sentry. It can be a reactive Proxy like a valtio store and trigger re-renders on your UI. It can hold many functions and store results for complex data transformations. 
+You can also get creative. Context can be anything that can hold props (for `run` helper). It can be a function, suppose to log ops to datadog / sentry. It can be a reactive Proxy like a valtio store and trigger re-renders on your UI. It can hold many functions and store results for complex data transformations. 
 
 If you also think about touring completeness, you can create logical operands, looping at the root and math via methods. This can lead to extremely complex chains that retain their semantic legibility. This can lead to better cohesion and collaboration between development and business units eg: 
 

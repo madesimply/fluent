@@ -43,46 +43,50 @@ Now let's setup our types.
 
 ```typescript
 // types.ts
-import { Ctx } from "fluent";
 
 // setup our context
 // we'll add errors to the records
 // we'll also add a current key to track the record being processes
-export type Context = Ctx & {
+export type Context = {
   data: { [key: string]: any, errors: string[] }[]; 
   current: { record: any, path: string; value: any, userId?: string }; 
 };
 
+export type Opts = {
+  ctx: Context;
+  run?: (op: any) => Promise<any>
+}
+
 // we'll use this to check strings (email etc..)
 // we'll also provide the ability for custom error msgs
 export type StringValidator = {
-  min(ctx: Context, len: number, msg?: string): void;
-  max(ctx: Context, len: number, msg?: string): void;
-  pattern(ctx: Context, regex: string, msg?: string): void;
-  required(ctx: Context, msg?: string): void;
+  min(opts: Opts, len: number, msg?: string): void;
+  max(opts: Opts, len: number, msg?: string): void;
+  pattern(opts: Opts, regex: string, msg?: string): void;
+  required(opts: Opts, msg?: string): void;
 }
 
 // we'll use this to check numbers (age)
 // we'll also provide the ability for custom error msgs
 export type NumberValidator = {
-  min(ctx: Context, min: number, msg?: string): void;
-  max(ctx: Context, max: number, msg?: string): void;
-  required(ctx: Context, msg?: string): void;
+  min(opts: Opts, min: number, msg?: string): void;
+  max(opts: Opts, max: number, msg?: string): void;
+  required(opts: Opts, msg?: string): void;
 }
 
 // we'll use this to interact with the server
 export type ServerApi = {
-  registerUser(ctx: Context): Promise<void>
+  registerUser(opts: Opts): Promise<void>
 }
 
 // each will iterate the records for us
-export type EachRecord = (ctx: Context, ...ops: any) => Promise<void>;
+export type EachRecord = (opts: Opts, ...ops: any) => Promise<void>;
 
 // path will set the current path and value for the rest of the ops
-export type SetPath = (ctx: Context, path: string) => void;
+export type SetPath = (opts: Opts, path: string) => void;
 
 // this will perform check and if there's no errors will run the ops
-export type OnSuccess = (ctx: Context, ...ops: any) => Promise<void>;
+export type OnSuccess = (opts: Opts, ...ops: any) => Promise<void>;
 
 // here's our whole api
 export type Api = {
@@ -102,23 +106,23 @@ Let's setup our string validator
 import { StringValidator } from "./types";
 
 const string: StringValidator = {
-  min(ctx, len, msg) {
+  min({ ctx }, len, msg) {
     if (typeof ctx.current.value !== "string" || ctx.current.value.length < len) {
       ctx.errors.push(msg || "String is too short");
     }
   },
-  max(ctx, len, msg) {
+  max({ ctx }, len, msg) {
     if (typeof ctx.current.value !== "string" || ctx.current.value.length > len) {
       ctx.errors.push(msg || "String is too long");
     }
   },
-  pattern(ctx, pattern, msg) {
+  pattern({ ctx }, pattern, msg) {
     const regex = new RegExp(pattern);
     if (typeof ctx.current.value !== "string" || !regex.test(ctx.current.value)) {
       ctx.errors.push(msg || "String does not match pattern");
     }
   },
-  required(ctx, msg) {
+  required({ ctx }, msg) {
     if (typeof ctx.current.value !== "string" || !ctx.current.value.length) {
       ctx.errors.push(msg || "String is required");
     }
@@ -133,17 +137,17 @@ Now the number validator
 import { NumberValidator } from "./types";
 
 const number: NumberValidator = {
-  min(ctx, min, msg) {
+  min({ ctx }, min, msg) {
     if (typeof ctx.current.value !== "number" || ctx.current.value < min) {
       ctx.errors.push(msg || "Number is too small");
     }
   },
-  max(ctx, max, msg) {
+  max({ ctx }, max, msg) {
     if (typeof ctx.current.value !== "number" || ctx.current.value > max) {
       ctx.errors.push(msg || "Number is too big");
     }
   },
-  required(ctx, msg) {
+  required({ ctx }, msg) {
     if (typeof ctx.current.value !== "number") {
       ctx.errors.push(msg || "Number is required");
     }
@@ -176,7 +180,7 @@ const helpers: {
   path: SetPath,
   onSuccess: OnSuccess,
 } = {
-  async each(ctx, ...ops) {
+  async each({ ctx, run }, ...ops) {
     const isArray = Array.isArray(ctx.data);
     if (!isArray) {
       ctx.errors.push("Data is not an array");
@@ -184,7 +188,7 @@ const helpers: {
     for(const record of ctx.data) {
       ctx.current.record = record;
       for(const op of ops) {
-        await ctx.run(op);
+        await run(op);
       }
       // if there's errors, add them to the record
       if (ctx.errors.length) {
@@ -193,14 +197,14 @@ const helpers: {
       }
     }
   },
-  path(ctx, path) {
+  path({ ctx }, path) {
     ctx.current.path = path;
     ctx.current.value = ctx.current.record[path];
   },
-  async onSuccess(ctx, ...ops) {
+  async onSuccess({ ctx, run }, ...ops) {
     if (!ctx.errors.length) {
       for(const op of ops) {
-        await ctx.run(op);
+        await run(op);
       }
     }
   },
