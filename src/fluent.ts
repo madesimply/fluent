@@ -71,6 +71,9 @@ export function fluent<T extends Record<string, any>>(apiStructure: T): Combined
     };
 
     const isFunction = typeof currentTarget === "function";
+    if (isFunction && currentPath.length === 1) {
+      calls.push({ method: currentPath.join('.') });
+    }
     const func = isFunction ? (...args: any[]) => {
       calls.push({ method: currentPath.join('.'), args });
       return createProxy(calls, currentPath, currentTarget);
@@ -111,7 +114,7 @@ export const run = async ({ op, ctx: _ctx, api }: { op: any; ctx: Ctx; api: any 
     const { method: path, args = [] } = item;
     const splitPath = path.split(".");
     const method = splitPath.reduce((acc, key) => acc[key], api);
-    return method({ctx, run: runHelper }, ...args);
+    return method({ctx, run: runHelper, api }, ...args);
   };
 
   for (let i = 0; i < config.length; i++) {
