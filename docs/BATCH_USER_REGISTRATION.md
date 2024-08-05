@@ -162,7 +162,7 @@ The server methods
 import { Server } from "./types";
 
 const server: Server = {
-  async registerUser(ctx) {
+  async registerUser({ ctx }) {
     const userId = Math.random().toString(36).substring(2, 9);
     ctx.current.record.userId = userId
   },
