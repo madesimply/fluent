@@ -106,7 +106,8 @@ export const run = async ({
 };
 
 export const chain = (op: string, fluent: any): any => {
-  const config: ApiCall[] = typeof op === 'string' ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
+  const config: ApiCall[] =
+    typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
 
   let current = fluent;
   for (const { method, args } of config) {
