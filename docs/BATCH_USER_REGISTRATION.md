@@ -10,6 +10,7 @@ Here's a more complete example for hypothetical user processing job.
   ├── string.ts
   ├── number.ts
   ├── helpers.ts
+  ├── remote.ts
   └── server.ts
 ```
 
@@ -163,12 +164,12 @@ import { Server } from "./types";
 
 const server: Server = {
   async registerUser({ ctx }) {
-    if (ctx.current.record.userId) {
-      return;
-    }
     const userId = Math.random().toString(36).substring(2, 9);
     ctx.current.record.userId = userId
   },
+  async sendNewsLetter({ ctx }) {
+    ctx.current.record.newsLetterSent = true;
+  }
 }
 ```
 
@@ -176,6 +177,7 @@ Finally our helpers
 
 ```typescript
 // helpers.ts
+import { toChain } from "fluent";
 import { EachRecord, SetPath, OnSuccess } from "./types";
 
 const helpers: {
@@ -183,7 +185,7 @@ const helpers: {
   path: SetPath,
   onSuccess: OnSuccess,
 } = {
-  async each({ ctx, run }, ops) {
+  async each({ ctx, chain }, ops) {
     const isArray = Array.isArray(ctx.data);
     if (!isArray) {
       ctx.errors.push("Data is not an array");
@@ -191,7 +193,7 @@ const helpers: {
     for(const record of ctx.data) {
       ctx.current.record = record;
       for(const op of ops) {
-        await run(op);
+        await toChain(op, chain).run(ctx)
       }
       // if there's errors, add them to the record
       if (ctx.errors.length) {
@@ -204,10 +206,10 @@ const helpers: {
     ctx.current.path = path;
     ctx.current.value = ctx.current.record[path];
   },
-  async onSuccess({ ctx, run }, ops) {
+  async onSuccess({ ctx, chain }, ops) {
     if (!ctx.errors.length) {
       for(const op of ops) {
-        await run(op);
+        await toChain(op, chain).run(ctx)
       }
     }
   },
@@ -223,7 +225,7 @@ import { string } from "./string";
 import { number } from "./number";
 import { helpers } from "./helpers";
 import { server } from "./server";
-import { fluent, run } from "fluent";
+import { fluent } from "fluent";
 
 const api: Api = {
   ...helpers,
@@ -235,7 +237,8 @@ const api: Api = {
 // a helper regex
 const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.source
 
-const { each, path, onSuccess, server } = fluent(api);
+const root = fluent(api);
+const { each, path, onSuccess, server } = root;
 
 // setup the op chain
 const op = each([
@@ -254,10 +257,7 @@ const ctx: Context = {
 };
 
 // run your data
-run({ op, ctx, api })
-  .then(({ data }) => {
-    console.log(JSON.stringify(data, null, 2))
-  });
+const { data } = await op.run(ctx);
 
 /**
  *  [
@@ -290,15 +290,16 @@ run({ op, ctx, api })
  *  ]
  */
 ```
-Later in another system you may want to / need to add functionality. Let's bring our serialized op chain in say from a database, enhance it. 
+Later in a remote system you may want to / need to add functionality. Let's bring our serialized op chain in say from a database, enhance it. 
 
 ```typescript
+// remote.ts
 import { data } from "./data";
 import { string } from "./string";
 import { number } from "./number";
 import { helpers } from "./helpers";
 import { server } from "./server";
-import { fluent, run, chain } from "fluent";
+import { fluent, toChain } from "fluent";
 
 // we need to rebuild our root api
 // IRL you'd ideally have a share lib for this
@@ -318,14 +319,15 @@ const json = JSON.parse(db);
 json[0].args.slice(-1);
 
 // let's now parse it back to a chainable api
-const originalChain = chain(json, root);
+const originalChain = toChain(json, root);
+console.log(JSON.stringify(originalChain.onSuccess([server.sendNewsLetter]), null, 2));  
 
 // we now have an operation chain based on 
 // a user registration chain
 
 // let's send a news letter to registered users
 // while not losing any of the prechecks / validations
-const op2 = originalChain.onSuccess([server.sendNewsLetter]);
+const op = originalChain.onSuccess([server.sendNewsLetter]);
 
 const ctx = { 
   data, 
@@ -333,9 +335,8 @@ const ctx = {
   errors: [] 
 }; 
 
-run({ op: op2, ctx, api }).then(({ data }) => {
-  console.log(JSON.stringify(data, null, 2))  
-});
+const result = await op.run(ctx);
+console.log(JSON.stringify(result.data, null, 2))  
 
 /**
  * [

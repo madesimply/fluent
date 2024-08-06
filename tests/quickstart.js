@@ -1,5 +1,5 @@
 // import your library and types
-import { fluent, run, chain } from "../dist/index.js";
+import { fluent, toChain } from "../dist/index.js";
 
 // helper for all string methods
 const isString = (ctx) => {
@@ -39,8 +39,6 @@ const authMethods = {
       ? null
       : (Math.random() + 1).toString(36).substring(7);
   },
-  test: (opts, value) => {
-  }
 };
 
 // now we can create our fluent api
@@ -54,7 +52,7 @@ const ctx = { value: "test@email.com", errors: [] };
 
 // now you can run this chain against any number of values
 // run functions always return a promise
-const result = await run({ op: login, api, ctx });
+const result = login.run(ctx);
 console.log(result);
 
 /**
@@ -72,7 +70,7 @@ console.log(result);
  *  you could create an email api then inject it into the chain
  */
 
-const sendEmail = (opts, message) => {
+const sendEmail = async (opts, message) => {
   if (opts.ctx.errors.length) {
     opts.ctx.email = "Email not sent";
   } else {
@@ -82,11 +80,10 @@ const sendEmail = (opts, message) => {
 
 const enhancedApi = { ...api, sendEmail };
 const root = fluent(enhancedApi);
-const loginChain = chain(login, root);
+const loginChain = toChain(login, root);
 
 const loginThenEmail =
   loginChain.sendEmail('welcome');
 
-run({ op: loginThenEmail, api: enhancedApi, ctx }).then(result => {
-  console.log(result);
-});
+const emailResult = await loginThenEmail.run(ctx);
+console.log(emailResult);

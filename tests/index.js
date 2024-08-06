@@ -1,11 +1,11 @@
 
-import { fluent, run, chain } from "../dist/index.js";
+import { fluent, toChain } from "../dist/index.js";
 
 const api = {
   baseMethod(opts) {
     opts.ctx.baseMethod = true;
     opts.ctx.fromBaseMethod = true;
-    opts.run({ op: api.namespace.method, ctx: opts.ctx });
+    opts.chain.namespace.method.run(opts.ctx);
   },
   baseMethodWithArgs(opts, arg1, arg2) {
     opts.ctx.baseMethodWithArgs = [arg1, arg2];
@@ -47,38 +47,31 @@ console.assert(JSON.stringify(root.namespace.nestedNamespace.methodWithArgs(1, 2
 console.assert(JSON.stringify(root.namespace.method.baseMethodWithArgs(1,2)) === '[{"method":"namespace.method"},{"method":"baseMethodWithArgs","args":[1,2]}]', 'chain - baseMethodWithArgs');
 
 // Run tests
-const ctx = {};
-run({ api, ctx, op: root.baseMethod }).then(res => {
-  console.assert(ctx.baseMethod === true, 'run - baseMethod');
-})
+let ctx = {};
+ctx = await root.baseMethod.run(ctx);
+console.assert(ctx.baseMethod === true, 'run - baseMethod');
 
-run({ api, ctx, op: root.baseMethodWithArgs(1, 2) }).then(res => {
-  console.assert(ctx.baseMethodWithArgs[0] === 1 && ctx.baseMethodWithArgs[1] === 2, 'run - baseMethodWithArgs');
-})
+ctx = await root.baseMethodWithArgs(1, 2).run(ctx);
+console.assert(ctx.baseMethodWithArgs[0] === 1 && ctx.baseMethodWithArgs[1] === 2, 'run - baseMethodWithArgs');
 
-run({ api, ctx, op: root.namespace.method }).then(res => {
-  console.assert(ctx['namespace.method'] === true, 'run - namespace.method');
-})
+ctx = await root.namespace.method.run(ctx);
+console.assert(ctx['namespace.method'] === true, 'run - namespace.method');
 
-run({ api, ctx, op: root.namespace.methodWithArgs(1, 2) }).then(res => {
-  console.assert(ctx['namespace.methodWithArgs'][0] === 1 && ctx['namespace.methodWithArgs'][1] === 2, 'run - namespace.methodWithArgs');
-})  
+ctx = await root.namespace.methodWithArgs(1, 2).run(ctx);
+console.assert(ctx['namespace.methodWithArgs'][0] === 1 && ctx['namespace.methodWithArgs'][1] === 2, 'run - namespace.methodWithArgs');
 
-run({ api, ctx, op: root.namespace.nestedNamespace.method }).then(res => {
-  console.assert(ctx['namespace.nestedNamespace.method'] === true, 'run - namespace.nestedNamespace.method');
-})
+ctx = await root.namespace.nestedNamespace.method.run(ctx);
+console.assert(ctx['namespace.nestedNamespace.method'] === true, 'run - namespace.nestedNamespace.method');
 
-run({ api, ctx, op: root.namespace.nestedNamespace.methodWithArgs(1, 2) }).then(res => {
-  console.assert(ctx['namespace.nestedNamespace.methodWithArgs'][0] === 1 && ctx['namespace.nestedNamespace.methodWithArgs'][1] === 2, 'run - namespace.nestedNamespace.methodWithArgs');
-})
+ctx = await root.namespace.nestedNamespace.methodWithArgs(1, 2).run(ctx);
+console.assert(ctx['namespace.nestedNamespace.methodWithArgs'][0] === 1 && ctx['namespace.nestedNamespace.methodWithArgs'][1] === 2, 'run - namespace.nestedNamespace.methodWithArgs');
 
-run({ api, ctx, op: root.baseMethod }).then(res => {
-  console.assert(ctx['namespace.method.secondRun'] === true, 'run - namespace.method.secondRun');
-})
+ctx = await root.baseMethod.run(ctx);
+console.assert(ctx['namespace.method.secondRun'] === true, 'run - namespace.method.secondRun');
 
 // Test parsing 
 const opString = JSON.stringify(root.namespace.nestedNamespace.methodWithArgs(1, 2));
-const parsedOp = chain(opString, root);
+const parsedOp = toChain(opString, root);
 
 console.assert(JSON.stringify(parsedOp) === '[{"method":"namespace.nestedNamespace.methodWithArgs","args":[1,2]}]', 'chain');
 

@@ -27,25 +27,55 @@ export type CombinedFluentApi<T> = {
 export type ApiCall = { method: string; args?: any[] };
 
 export function fluent<T extends Record<string, any>>(
-  apiStructure: T
+  api: T
 ): CombinedFluentApi<T> {
+  let chain: any = null;
+
   const createProxy = (
     parentCalls: ApiCall[] = [],
     path: string[] = []
   ): any => {
     const calls = [...parentCalls];
 
+    const run = (ctx: any) => {
+      const executeAsyncOps = async (firstPromise: Promise<any>, atIndex: number) => {
+        await firstPromise;
+        return Promise.all(
+          calls.slice(atIndex + 1).map(async (item) => {
+            return executeOp(item);
+          })
+        ).then(() => ctx);  
+      };
+
+      const executeOp = (item: any) => {
+        const { method: path, args = [] } = item;
+        const splitPath = path.split(".");
+        const method = splitPath.reduce((acc, key) => acc[key], api);
+        return method({ ctx, chain }, ...args);
+      };
+    
+      for (let i = 0; i < calls.length; i++) {
+        const result = executeOp(calls[i]);
+        if (result instanceof Promise) {
+          return executeAsyncOps(result, i);
+        }
+      }
+    
+      return ctx;
+    }
+
     const handler: ProxyHandler<any> = {
       get(_, prop: string | symbol): any {
+        if (prop === "run") return run;
         if (prop === "toJSON") return () => calls;
         if (typeof prop !== "string") return undefined;
 
         const baseTarget =
-          prop in apiStructure ? apiStructure[prop] : undefined;
+          prop in api ? api[prop] : undefined;
         const newPath = baseTarget ? [prop] : [...path, prop];
         const fullPath = newPath.join(".");
         const target =
-          baseTarget || newPath.reduce((acc, key) => acc[key], apiStructure);
+          baseTarget || newPath.reduce((acc, key) => acc[key], api);
 
         if (typeof target === "object") {
           return createProxy(calls, newPath);
@@ -68,44 +98,11 @@ export function fluent<T extends Record<string, any>>(
     return new Proxy(() => {}, handler);
   };
 
-  return createProxy() as CombinedFluentApi<T>;
+  chain = createProxy() as CombinedFluentApi<T>;
+  return chain;
 }
 
-type Ctx = any;
-
-export const run = async ({
-  op,
-  ctx,
-  api,
-}: {
-  op: any;
-  ctx: Ctx;
-  api: any;
-}): Promise<any> => {
-  const config =
-    typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
-
-  ctx = ctx as Ctx;
-
-  const runHelper = async (op: any) => {
-    return await run({ op, ctx, api });
-  };
-
-  const executeOperation = async (item: any) => {
-    const { method: path, args = [] } = item;
-    const splitPath = path.split(".");
-    const method = splitPath.reduce((acc, key) => acc[key], api);
-    return method({ ctx, run: runHelper, api }, ...args);
-  };
-
-  for (let i = 0; i < config.length; i++) {
-    await executeOperation(config[i]);
-  }
-
-  return ctx;
-};
-
-export const chain = (op: string, fluent: any): any => {
+export const toChain = (op: string, fluent: any): any => {
   const config: ApiCall[] =
     typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
 

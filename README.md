@@ -18,7 +18,7 @@ Leveraging TypeScript, Proxies and the concept of context... Fluent allows you t
 
 ## Installation
 
-To install Fluent, use npm:
+To install Fluent, use npm to install from github (npm register coming later):
 
 ```bash
 npm install https://github.com/paulpomerleau/fluent
@@ -28,7 +28,7 @@ npm install https://github.com/paulpomerleau/fluent
 
 ```typescript
 // import your library and types 
-import { fluent, run } from "./fluent"
+import { fluent, toChain } from "./fluent"
 
 /** 
  * setup context type (can be anything)
@@ -46,12 +46,12 @@ type Context = {
 }
 
 /**
- * along with the context, methods are passed an run function
- * this function allows you to run other ops in the chain
+ * along with the context, methods are passed an chain
+ * this function allows you to run other chains within methods
  */
 type Opts = {
   ctx: Context;
-  run?: (op: any) => Promise<any>;
+  chain?: any;
 }
 
 /**
@@ -115,9 +115,8 @@ const ctx = { value: 'test@email.com', errors: [] };
 
 // now you can run this chain against any number of values
 // run functions always return a promise
-run({ op: login, api, ctx }).then(result => {
-    console.log(result);
-})
+const result = await login.run(ctx);
+console.log(result);
 /** 
  * output:
  * {
@@ -143,27 +142,40 @@ const sendEmail = (opts, message) => {
 
 const enhancedApi = { ...api, sendEmail };
 const root = fluent(enhancedApi);
-const loginChain = chain(login, root);
+const loginChain = toChain(login, root);
 
 const loginThenEmail =
   loginChain.sendEmail('welcome');
 
-run({ op: loginThenEmail, api: enhancedApi, ctx }).then(result => {
-  console.log(result);
-});
-
+const emailResult = await loginThenEmail.run(ctx);
+console.log(emailResult);
 
 ```
 See the [batch user registration example](./docs/BATCH_USER_REGISTRATION.md) for more a more complete / advanced setup.
 
-#### You can switch APIs in your chain
+## Gotchas
+
+### Async operations
+If you have a promise in your chain you'll need to await for the ctx result. If you don't know what's in the chain, assume there's a promise.
+
+### Switching APIs in chain
 You can switch to another API anywhere in your chain by calling a root. 
 ```typescript
 string.min(8).number.even;
 ```
 
-#### You can't use spread arguments
-I had to choose between requiring `()` on no arg functions or forcing named arguments and chose the later.
+### Sending chains as args
+You can send to and run chains in other chain methods but assume they're serialized. Use the `toChain` method if you're doing this.
+```typescript
+const each({ ctx }, ops) => {
+    for(const op of ops) {
+        toChain(op).run(ctx);
+    }
+}
+```
+
+### You can't use spread arguments
+We had to choose between requiring `()` on no arg chain functions or forcing named arguments and chose the later.
 ```typescript
 // we could have done this but it hurts readability imo
 chain.noArgs().withArgs('here'); 
@@ -176,13 +188,10 @@ The workaround is to use an array.
 chain.withNplusArgs([...data]);
 ```
 
-#### Null param methods are not callable
-If you have functions that have no arguments defined, you reference them as a property in the chain, not a function call. Eg a `required` function without args is chained like this: `string.min(8).required`.
+### Functions with no args are properties
+If you have functions that have no arguments defined, you can reference them as a property in the chain, not a function call. Eg a `required` function without args is chained like this: `string.min(8).required`.
 
-#### Async functions
-Methods are called in order and await for responses if they're asynchronous. If you're certain your chain has no promises, you don't need an await. If you're unsure, there's no harm in using await. 
-
-#### Method namespacing
+### Method namespacing
 You can have methods at any level... it's completely up to you.
 ```typescript
 type FancyMethods = {

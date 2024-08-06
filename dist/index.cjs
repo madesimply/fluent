@@ -19,24 +19,48 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/index.ts
 var src_exports = {};
 __export(src_exports, {
-  chain: () => chain,
   fluent: () => fluent,
-  run: () => run
+  toChain: () => toChain
 });
 module.exports = __toCommonJS(src_exports);
 
 // src/fluent.ts
-function fluent(apiStructure) {
+function fluent(api) {
+  let chain = null;
   const createProxy = (parentCalls = [], path = []) => {
     const calls = [...parentCalls];
+    const run = (ctx) => {
+      const executeAsyncOps = async (firstPromise, atIndex) => {
+        await firstPromise;
+        return Promise.all(
+          calls.slice(atIndex + 1).map(async (item) => {
+            return executeOp(item);
+          })
+        ).then(() => ctx);
+      };
+      const executeOp = (item) => {
+        const { method: path2, args = [] } = item;
+        const splitPath = path2.split(".");
+        const method = splitPath.reduce((acc, key) => acc[key], api);
+        return method({ ctx, chain }, ...args);
+      };
+      for (let i = 0; i < calls.length; i++) {
+        const result = executeOp(calls[i]);
+        if (result instanceof Promise) {
+          return executeAsyncOps(result, i);
+        }
+      }
+      return ctx;
+    };
     const handler = {
       get(_, prop) {
+        if (prop === "run") return run;
         if (prop === "toJSON") return () => calls;
         if (typeof prop !== "string") return void 0;
-        const baseTarget = prop in apiStructure ? apiStructure[prop] : void 0;
+        const baseTarget = prop in api ? api[prop] : void 0;
         const newPath = baseTarget ? [prop] : [...path, prop];
         const fullPath = newPath.join(".");
-        const target = baseTarget || newPath.reduce((acc, key) => acc[key], apiStructure);
+        const target = baseTarget || newPath.reduce((acc, key) => acc[key], api);
         if (typeof target === "object") {
           return createProxy(calls, newPath);
         }
@@ -55,30 +79,10 @@ function fluent(apiStructure) {
     return new Proxy(() => {
     }, handler);
   };
-  return createProxy();
+  chain = createProxy();
+  return chain;
 }
-var run = async ({
-  op,
-  ctx,
-  api
-}) => {
-  const config = typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
-  ctx = ctx;
-  const runHelper = async (op2) => {
-    return await run({ op: op2, ctx, api });
-  };
-  const executeOperation = async (item) => {
-    const { method: path, args = [] } = item;
-    const splitPath = path.split(".");
-    const method = splitPath.reduce((acc, key) => acc[key], api);
-    return method({ ctx, run: runHelper, api }, ...args);
-  };
-  for (let i = 0; i < config.length; i++) {
-    await executeOperation(config[i]);
-  }
-  return ctx;
-};
-var chain = (op, fluent2) => {
+var toChain = (op, fluent2) => {
   const config = typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
   let current = fluent2;
   for (const { method, args } of config) {
@@ -95,8 +99,7 @@ var chain = (op, fluent2) => {
 };
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  chain,
   fluent,
-  run
+  toChain
 });
 //# sourceMappingURL=index.cjs.map
