@@ -29,7 +29,7 @@ function fluent(apiStructure) {
       }
     };
     const isFunction = typeof currentTarget === "function";
-    if (isFunction && currentPath.length === 1) {
+    if (isFunction && currentTarget.length === 1) {
       calls.push({ method: currentPath.join(".") });
     }
     const func = isFunction ? (...args) => {
@@ -52,9 +52,9 @@ function fluent(apiStructure) {
   rootProxy.toJSON = () => [];
   return rootProxy;
 }
-var run = async ({ op, ctx: _ctx, api }) => {
+var run = async ({ op, ctx, api }) => {
   const config = typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
-  const ctx = _ctx;
+  ctx = ctx;
   const runHelper = async (op2) => {
     return await run({ op: op2, ctx, api });
   };
@@ -69,8 +69,23 @@ var run = async ({ op, ctx: _ctx, api }) => {
   }
   return ctx;
 };
+var parseOp = (op, fluent2) => {
+  const config = JSON.parse(op);
+  let current = fluent2;
+  for (const { method, args } of config) {
+    const methods = method.split(".");
+    for (const m of methods) {
+      current = current[m];
+    }
+    if (args) {
+      current = current(...args);
+    }
+  }
+  return current;
+};
 export {
   fluent,
+  parseOp,
   run
 };
 //# sourceMappingURL=index.mjs.map

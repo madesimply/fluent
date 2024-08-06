@@ -55,7 +55,6 @@ export function fluent<T extends Record<string, any>>(apiStructure: T): Combined
 
             // If it's not a namespace, add it to calls
             calls.push({ method: fullPath });
-
             const proxy = new Proxy(function (...args: any[]) {
               calls[calls.length - 1].args = args;
               // Keep the full current path
@@ -71,7 +70,7 @@ export function fluent<T extends Record<string, any>>(apiStructure: T): Combined
     };
 
     const isFunction = typeof currentTarget === "function";
-    if (isFunction && currentPath.length === 1) {
+    if (isFunction && currentTarget.length === 1) {
       calls.push({ method: currentPath.join('.') });
     }
     const func = isFunction ? (...args: any[]) => {
@@ -102,9 +101,9 @@ export function fluent<T extends Record<string, any>>(apiStructure: T): Combined
 
 type Ctx = any;
 
-export const run = async ({ op, ctx: _ctx, api }: { op: any; ctx: Ctx; api: any }): Promise<any> => {
+export const run = async ({ op, ctx, api }: { op: any; ctx: Ctx; api: any }): Promise<any> => {
   const config = typeof op === 'string' ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
-  const ctx = _ctx as Ctx;
+  ctx = ctx as Ctx;
 
   const runHelper = async (op: any) => {
     return await run({ op, ctx, api });
@@ -122,4 +121,21 @@ export const run = async ({ op, ctx: _ctx, api }: { op: any; ctx: Ctx; api: any 
   }
 
   return ctx;
+};
+
+export const parseOp = (op: string, fluent: any): any => {
+  const config = JSON.parse(op);
+
+  let current = fluent;
+  for (const { method, args } of config) {
+    const methods = method.split('.');
+    for (const m of methods) {
+      current = current[m];
+    }
+    if (args) {
+      current = current(...args);
+    }
+  }
+
+  return current;
 };

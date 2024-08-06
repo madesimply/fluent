@@ -14,10 +14,11 @@ type ApiCall = {
 };
 declare function fluent<T extends Record<string, any>>(apiStructure: T): CombinedFluentApi<T>;
 type Ctx = any;
-declare const run: ({ op, ctx: _ctx, api }: {
+declare const run: ({ op, ctx, api }: {
     op: any;
     ctx: Ctx;
     api: any;
 }) => Promise<any>;
+declare const parseOp: (op: string, fluent: any) => any;
 
-export { type AddConfigPropAndReturn, type ApiCall, type CombinedFluentApi, type FluentApi, fluent, run };
+export { type AddConfigPropAndReturn, type ApiCall, type CombinedFluentApi, type FluentApi, fluent, parseOp, run };
