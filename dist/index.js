@@ -27,59 +27,41 @@ module.exports = __toCommonJS(src_exports);
 
 // src/fluent.ts
 function fluent(apiStructure) {
-  const createProxy = (parentCalls = [], currentPath = [], currentTarget = apiStructure) => {
+  const createProxy = (parentCalls = [], path = []) => {
     const calls = [...parentCalls];
     const handler = {
       get(_, prop) {
-        if (prop === "toJSON") {
-          return () => calls;
+        if (prop === "toJSON") return () => calls;
+        if (typeof prop !== "string") return void 0;
+        const baseTarget = prop in apiStructure ? apiStructure[prop] : void 0;
+        const newPath = baseTarget ? [prop] : [...path, prop];
+        const fullPath = newPath.join(".");
+        const target = baseTarget || newPath.reduce((acc, key) => acc[key], apiStructure);
+        if (typeof target === "object") {
+          return createProxy(calls, newPath);
         }
-        if (typeof prop === "string") {
-          const newPath = [...currentPath, prop];
-          const fullPath = newPath.join(".");
-          const isNamespace = typeof currentTarget[prop] === "object";
-          if (isNamespace) {
-            return createProxy(calls, newPath, currentTarget[prop]);
-          } else {
-            if (prop in apiStructure) {
-              return createProxy(calls, [prop], apiStructure[prop]);
-            }
-            calls.push({ method: fullPath });
-            const proxy2 = new Proxy(function(...args) {
-              calls[calls.length - 1].args = args;
-              return createProxy(calls, currentPath, currentTarget);
-            }, handler);
-            return proxy2;
+        if (typeof target === "function") {
+          const func = target;
+          if (func.length <= 1) {
+            return createProxy([...calls, { method: fullPath }], path);
           }
+          return (...args) => {
+            return createProxy([...calls, { method: fullPath, args }], path);
+          };
         }
         return void 0;
       }
     };
-    const isFunction = typeof currentTarget === "function";
-    if (isFunction && currentTarget.length === 1) {
-      calls.push({ method: currentPath.join(".") });
-    }
-    const func = isFunction ? (...args) => {
-      calls.push({ method: currentPath.join("."), args });
-      return createProxy(calls, currentPath, currentTarget);
-    } : () => {
-    };
-    const proxy = new Proxy(func, handler);
-    proxy.toJSON = () => calls;
-    return proxy;
+    return new Proxy(() => {
+    }, handler);
   };
-  const rootProxy = new Proxy({}, {
-    get(_, prop) {
-      if (prop === "toJSON") {
-        return () => [];
-      }
-      return createProxy([], [prop], apiStructure[prop]);
-    }
-  });
-  rootProxy.toJSON = () => [];
-  return rootProxy;
+  return createProxy();
 }
-var run = async ({ op, ctx, api }) => {
+var run = async ({
+  op,
+  ctx,
+  api
+}) => {
   const config = typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
   ctx = ctx;
   const runHelper = async (op2) => {
@@ -97,15 +79,16 @@ var run = async ({ op, ctx, api }) => {
   return ctx;
 };
 var parseOp = (op, fluent2) => {
-  const config = JSON.parse(op);
+  const config = typeof op === "string" ? JSON.parse(op) : op;
   let current = fluent2;
   for (const { method, args } of config) {
     const methods = method.split(".");
     for (const m of methods) {
+      if (methods.indexOf(m) === methods.length - 1) {
+        current = current[m](...args || []);
+        continue;
+      }
       current = current[m];
-    }
-    if (args) {
-      current = current(...args);
     }
   }
   return current;

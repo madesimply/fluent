@@ -147,6 +147,20 @@ You can switch to another API anywhere in your chain by calling a root.
 string.min(8).number.even;
 ```
 
+#### You can't use spread arguments
+I had to choose between requiring `()` on no arg functions or forcing named arguments and chose the later.
+```typescript
+// we could have done this but it hurts readability imo
+chain.noArgs().withArgs('here'); 
+
+// we went with this
+chain.noArgs.withArgs('here');
+```
+The workaround is to use an array.
+```typescript
+chain.withNplusArgs([...data]);
+```
+
 #### Null param methods are not callable
 If you have functions that have no arguments defined, you reference them as a property in the chain, not a function call. Eg a `required` function without args is chained like this: `string.min(8).required`.
 
@@ -158,7 +172,7 @@ You can have methods at any level... it's completely up to you.
 ```typescript
 type FancyMethods = {
     // let's create a logic or operator at root,
-    or: ({ ctx, run }, ...ops: any) => void, 
+    or: ({ ctx, run }, ops: any[]) => void, 
     // a namespace for string methods
     string: { 
         min: ({ ctx, run }, len: number) => void,
@@ -174,10 +188,10 @@ type FancyMethods = {
 }
 
 // ... later
-const op = or(
+const op = or([
     string.email.corporate,
     string.email.gmail
-).auth.registerLead;
+]).auth.registerLead;
 ```
 
 ## Use Cases
@@ -201,11 +215,10 @@ You can also get creative. Context can be anything that can hold props (for `run
 If you also think about touring completeness, you can create logical operands, looping at the root and math via methods. This can lead to extremely complex chains that retain their semantic legibility. This can lead to better cohesion and collaboration between development and business units eg: 
 
 ```typescript
-const op = whileNotFinished(
+const op = whileNotFinished([
     if(string.email.corporate, email.monthlyReport).
     if(string.email.gmail, email.monthlyUpdates).
-    everyStaff(email.chainResults)
-);
+]).everyStaff(email.chainResults);
 
 const result = await run({ op, api, ctx });
 ```

@@ -14,7 +14,7 @@ type ApiCall = {
 };
 declare function fluent<T extends Record<string, any>>(apiStructure: T): CombinedFluentApi<T>;
 type Ctx = any;
-declare const run: ({ op, ctx, api }: {
+declare const run: ({ op, ctx, api, }: {
     op: any;
     ctx: Ctx;
     api: any;

@@ -44,6 +44,8 @@ console.assert(JSON.stringify(root.namespace.nestedNamespace.method) === '[{"met
 
 console.assert(JSON.stringify(root.namespace.nestedNamespace.methodWithArgs(1, 2)) === '[{"method":"namespace.nestedNamespace.methodWithArgs","args":[1,2]}]', 'chain - namespace.nestedNamespace.methodWithArgs');
 
+console.assert(JSON.stringify(root.namespace.method.baseMethodWithArgs(1,2)) === '[{"method":"namespace.method"},{"method":"baseMethodWithArgs","args":[1,2]}]', 'chain - baseMethodWithArgs');
+
 // Run tests
 const ctx = {};
 run({ api, ctx, op: root.baseMethod }).then(res => {

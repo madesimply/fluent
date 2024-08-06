@@ -26,94 +26,76 @@ export type CombinedFluentApi<T> = {
 
 export type ApiCall = { method: string; args?: any[] };
 
-export function fluent<T extends Record<string, any>>(apiStructure: T): CombinedFluentApi<T> {
-  const createProxy = (parentCalls: ApiCall[] = [], currentPath: string[] = [], currentTarget: any = apiStructure): any => {
+export function fluent<T extends Record<string, any>>(
+  apiStructure: T
+): CombinedFluentApi<T> {
+  const createProxy = (
+    parentCalls: ApiCall[] = [],
+    path: string[] = []
+  ): any => {
     const calls = [...parentCalls];
 
     const handler: ProxyHandler<any> = {
       get(_, prop: string | symbol): any {
-        if (prop === 'toJSON') {
-          return () => calls;
+        if (prop === "toJSON") return () => calls;
+        if (typeof prop !== "string") return undefined;
+
+        const baseTarget =
+          prop in apiStructure ? apiStructure[prop] : undefined;
+        const newPath = baseTarget ? [prop] : [...path, prop];
+        const fullPath = newPath.join(".");
+        const target =
+          baseTarget || newPath.reduce((acc, key) => acc[key], apiStructure);
+
+        if (typeof target === "object") {
+          return createProxy(calls, newPath);
         }
 
-        if (typeof prop === 'string') {
-          const newPath = [...currentPath, prop];
-          const fullPath = newPath.join('.');
-
-          // Check if the current property is a namespace
-          const isNamespace = typeof currentTarget[prop] === 'object';
-
-          if (isNamespace) {
-            // If it's a namespace, continue building the path without adding to calls
-            return createProxy(calls, newPath, currentTarget[prop]);
-          } else {
-            // Check if the property is a new top-level API
-            if (prop in apiStructure) {
-              // Switch to a new API
-              return createProxy(calls, [prop], apiStructure[prop]);
-            }
-
-            // If it's not a namespace, add it to calls
-            calls.push({ method: fullPath });
-            const proxy = new Proxy(function (...args: any[]) {
-              calls[calls.length - 1].args = args;
-              // Keep the full current path
-              return createProxy(calls, currentPath, currentTarget);
-            }, handler);
-
-            return proxy;
+        if (typeof target === "function") {
+          const func = target as Function;
+          if (func.length <= 1) {
+            return createProxy([...calls, { method: fullPath }], path);
           }
+          return (...args: any[]) => {
+            return createProxy([...calls, { method: fullPath, args }], path);
+          };
         }
 
         return undefined;
-      }
+      },
     };
 
-    const isFunction = typeof currentTarget === "function";
-    if (isFunction && currentTarget.length === 1) {
-      calls.push({ method: currentPath.join('.') });
-    }
-    const func = isFunction ? (...args: any[]) => {
-      calls.push({ method: currentPath.join('.'), args });
-      return createProxy(calls, currentPath, currentTarget);
-    } : () => { };
-
-    const proxy = new Proxy(func, handler);
-    (proxy as any).toJSON = () => calls;
-
-    return proxy;
+    return new Proxy(() => {}, handler);
   };
 
-  const rootProxy = new Proxy({}, {
-    get(_, prop: string | symbol): any {
-      if (prop === 'toJSON') {
-        return () => [];
-      }
-
-      return createProxy([], [prop as string], apiStructure[prop as string]);
-    }
-  }) as CombinedFluentApi<T>;
-
-  (rootProxy as any).toJSON = () => [];
-
-  return rootProxy;
+  return createProxy() as CombinedFluentApi<T>;
 }
 
 type Ctx = any;
 
-export const run = async ({ op, ctx, api }: { op: any; ctx: Ctx; api: any }): Promise<any> => {
-  const config = typeof op === 'string' ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
+export const run = async ({
+  op,
+  ctx,
+  api,
+}: {
+  op: any;
+  ctx: Ctx;
+  api: any;
+}): Promise<any> => {
+  const config =
+    typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
+
   ctx = ctx as Ctx;
 
   const runHelper = async (op: any) => {
     return await run({ op, ctx, api });
-  }
+  };
 
   const executeOperation = async (item: any) => {
     const { method: path, args = [] } = item;
     const splitPath = path.split(".");
     const method = splitPath.reduce((acc, key) => acc[key], api);
-    return method({ctx, run: runHelper, api }, ...args);
+    return method({ ctx, run: runHelper, api }, ...args);
   };
 
   for (let i = 0; i < config.length; i++) {
@@ -124,18 +106,18 @@ export const run = async ({ op, ctx, api }: { op: any; ctx: Ctx; api: any }): Pr
 };
 
 export const parseOp = (op: string, fluent: any): any => {
-  const config = JSON.parse(op);
+  const config: ApiCall[] = typeof op === 'string' ? JSON.parse(op) : op;
 
   let current = fluent;
   for (const { method, args } of config) {
-    const methods = method.split('.');
+    const methods = method.split(".");
     for (const m of methods) {
+      if (methods.indexOf(m) === methods.length - 1) {
+        current = current[m](...(args || []));
+        continue;
+      }
       current = current[m];
     }
-    if (args) {
-      current = current(...args);
-    }
   }
-
   return current;
 };

@@ -80,13 +80,13 @@ export type ServerApi = {
 }
 
 // each will iterate the records for us
-export type EachRecord = (opts: Opts, ...ops: any) => Promise<void>;
+export type EachRecord = (opts: Opts, ops: any[]) => Promise<void>;
 
 // path will set the current path and value for the rest of the ops
 export type SetPath = (opts: Opts, path: string) => void;
 
 // this will perform check and if there's no errors will run the ops
-export type OnSuccess = (opts: Opts, ...ops: any) => Promise<void>;
+export type OnSuccess = (opts: Opts, ops: any[]) => Promise<void>;
 
 // here's our whole api
 export type Api = {
@@ -163,6 +163,9 @@ import { Server } from "./types";
 
 const server: Server = {
   async registerUser({ ctx }) {
+    if (ctx.current.record.userId) {
+      return;
+    }
     const userId = Math.random().toString(36).substring(2, 9);
     ctx.current.record.userId = userId
   },
@@ -180,7 +183,7 @@ const helpers: {
   path: SetPath,
   onSuccess: OnSuccess,
 } = {
-  async each({ ctx, run }, ...ops) {
+  async each({ ctx, run }, ops) {
     const isArray = Array.isArray(ctx.data);
     if (!isArray) {
       ctx.errors.push("Data is not an array");
@@ -201,7 +204,7 @@ const helpers: {
     ctx.current.path = path;
     ctx.current.value = ctx.current.record[path];
   },
-  async onSuccess({ ctx, run }, ...ops) {
+  async onSuccess({ ctx, run }, ops) {
     if (!ctx.errors.length) {
       for(const op of ops) {
         await run(op);
@@ -235,13 +238,13 @@ const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.source
 const { each, path, onSuccess, server } = fluent(api);
 
 // setup the op chain
-const op = each(
+const op = each([
   path("name").string.min(3).max(50),
   path("email").string.pattern(emailPattern, 'INVALID_EMAIL'),
   path("age").number.min(18, 'TO_YOUNG').max(100, 'TO_OLD'),
   path("city").string.min(3).max(50),
-  onSuccess(server.registerUser)
-);
+  onSuccess([server.registerUser])
+]);
 
 // setup the context
 const ctx: Context = { 
@@ -286,4 +289,84 @@ run({ op, ctx, api })
  *    }
  *  ]
  */
+```
+Later in another system you may want to / need to add functionality. Let's bring our serialized op chain in say from a database, enhance it. 
+
+```typescript
+import { data } from "./data";
+import { string } from "./string";
+import { number } from "./number";
+import { helpers } from "./helpers";
+import { server } from "./server";
+import { fluent, run, parseOp } from "fluent";
+
+// we need to rebuild our root api
+// IRL you'd ideally have a share lib for this
+// and just import { userApi } from your env
+const root = fluent({
+  ...helpers,
+  string,
+  number,
+  server,
+});
+
+// let's bring in our db
+const db = JSON.stringify(op);
+
+// we can parse it and remove the registration step
+const json = JSON.parse(db);
+json[0].args.slice(-1);
+
+// let's now parse it back to a chainable api
+const originalChain = parseOp(json, root);
+
+// we now have an operation chain based on 
+// a user registration chain
+
+// let's send a news letter to registered users
+// while not losing any of the prechecks / validations
+const op2 = originalChain.onSuccess([server.sendNewsLetter]);
+
+const ctx = { 
+  data, 
+  current: { record: {}, path: "", value: "" }, 
+  errors: [] 
+}; 
+
+run({ op: op2, ctx, api }).then(({ data }) => {
+  console.log(JSON.stringify(data, null, 2))  
+});
+
+/**
+ * [
+ *   {
+ *     "name": "John Doe",
+ *     "email": "john.doe@example.com",
+ *     "age": 12,
+ *     "city": "New York",
+ *     "errors": [
+ *       "TO_YOUNG"
+ *     ]
+ *   },
+ *   {
+ *     "name": "Jane Smith",
+ *     "email": "jane.smith@example",
+ *     "age": 101,
+ *     "city": "Los Angeles",
+ *     "errors": [
+ *       "INVALID_EMAIL",
+ *       "TO_OLD"
+ *     ]
+ *   },
+ *   {
+ *     "name": "Bob Johnson",
+ *     "email": "bob.johnson@example.com",
+ *     "age": 40,
+ *     "city": "Chicago",
+ *     "userId": "cy2sn2g",
+ *     "newsLetterSent": true
+ *   }
+ * ]
+ */
+
 ```
