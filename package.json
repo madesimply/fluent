@@ -1,5 +1,6 @@
 {
   "name": "fluent",
+  "type": "module",
   "author": {
     "name": "Paul Pomerleau",
     "url": "https://github.com/paulpomerleau"

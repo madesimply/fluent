@@ -1,7 +1,7 @@
 # Fluent
 
 > [!WARNING]  
-> This is very much in beta mode. Expect breaking changes as things mature, meantime provide feedback, create issues or PRs. 
+> In BETA. Slowly reaching confidence on final api but still possibility of breaking changes. Meantime provide feedback, create issues or PRs. 
 
 
 **TLDR** - Fluent helps you build complex [fluent interfaces](https://en.wikipedia.org/wiki/Fluent_interface) aka "chainable methods" easily. 
@@ -133,10 +133,25 @@ run({ op: login, api, ctx }).then(result => {
  *  you could create an email api then inject it into the chain
  */ 
 
-const loginThenEmail = 
-    string.pattern(isEmail).min(8).max(20).
-    auth.createToken.
-    email.send('welcome');
+const sendEmail = (opts, message) => {
+  if (opts.ctx.errors.length) {
+    opts.ctx.email = "Email not sent";
+  } else {
+    opts.ctx.email = `Email sent: ${message}`;
+  }
+};
+
+const enhancedApi = { ...api, sendEmail };
+const root = fluent(enhancedApi);
+const loginChain = chain(login, root);
+
+const loginThenEmail =
+  loginChain.sendEmail('welcome');
+
+run({ op: loginThenEmail, api: enhancedApi, ctx }).then(result => {
+  console.log(result);
+});
+
 
 ```
 See the [batch user registration example](./docs/BATCH_USER_REGISTRATION.md) for more a more complete / advanced setup.

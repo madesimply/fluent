@@ -1,30 +1,3 @@
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-
-// src/index.ts
-var src_exports = {};
-__export(src_exports, {
-  fluent: () => fluent,
-  parseOp: () => parseOp,
-  run: () => run
-});
-module.exports = __toCommonJS(src_exports);
-
 // src/fluent.ts
 function fluent(apiStructure) {
   const createProxy = (parentCalls = [], path = []) => {
@@ -78,13 +51,13 @@ var run = async ({
   }
   return ctx;
 };
-var parseOp = (op, fluent2) => {
-  const config = typeof op === "string" ? JSON.parse(op) : op;
+var chain = (op, fluent2) => {
+  const config = typeof op === "string" ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
   let current = fluent2;
   for (const { method, args } of config) {
     const methods = method.split(".");
     for (const m of methods) {
-      if (methods.indexOf(m) === methods.length - 1) {
+      if (methods.indexOf(m) === methods.length - 1 && (args == null ? void 0 : args.length)) {
         current = current[m](...args || []);
         continue;
       }
@@ -93,10 +66,9 @@ var parseOp = (op, fluent2) => {
   }
   return current;
 };
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
+export {
+  chain,
   fluent,
-  parseOp,
   run
-});
+};
 //# sourceMappingURL=index.js.map

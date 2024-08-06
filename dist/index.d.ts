@@ -19,6 +19,6 @@ declare const run: ({ op, ctx, api, }: {
     ctx: Ctx;
     api: any;
 }) => Promise<any>;
-declare const parseOp: (op: string, fluent: any) => any;
+declare const chain: (op: string, fluent: any) => any;
 
-export { type AddConfigPropAndReturn, type ApiCall, type CombinedFluentApi, type FluentApi, fluent, parseOp, run };
+export { type AddConfigPropAndReturn, type ApiCall, type CombinedFluentApi, type FluentApi, chain, fluent, run };

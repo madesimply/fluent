@@ -105,19 +105,20 @@ export const run = async ({
   return ctx;
 };
 
-export const parseOp = (op: string, fluent: any): any => {
-  const config: ApiCall[] = typeof op === 'string' ? JSON.parse(op) : op;
+export const chain = (op: string, fluent: any): any => {
+  const config: ApiCall[] = typeof op === 'string' ? JSON.parse(op) : JSON.parse(JSON.stringify(op));
 
   let current = fluent;
   for (const { method, args } of config) {
     const methods = method.split(".");
     for (const m of methods) {
-      if (methods.indexOf(m) === methods.length - 1) {
+      if (methods.indexOf(m) === methods.length - 1 && args?.length) {
         current = current[m](...(args || []));
         continue;
       }
       current = current[m];
     }
   }
+
   return current;
 };

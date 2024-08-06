@@ -298,7 +298,7 @@ import { string } from "./string";
 import { number } from "./number";
 import { helpers } from "./helpers";
 import { server } from "./server";
-import { fluent, run, parseOp } from "fluent";
+import { fluent, run, chain } from "fluent";
 
 // we need to rebuild our root api
 // IRL you'd ideally have a share lib for this
@@ -318,7 +318,7 @@ const json = JSON.parse(db);
 json[0].args.slice(-1);
 
 // let's now parse it back to a chainable api
-const originalChain = parseOp(json, root);
+const originalChain = chain(json, root);
 
 // we now have an operation chain based on 
 // a user registration chain

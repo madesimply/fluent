@@ -1,5 +1,5 @@
 
-const { fluent, run, parseOp } = require("../dist/index.js");
+import { fluent, run, chain } from "../dist/index.js";
 
 const api = {
   baseMethod(opts) {
@@ -78,8 +78,8 @@ run({ api, ctx, op: root.baseMethod }).then(res => {
 
 // Test parsing 
 const opString = JSON.stringify(root.namespace.nestedNamespace.methodWithArgs(1, 2));
-const parsedOp = parseOp(opString, root);
+const parsedOp = chain(opString, root);
 
-console.assert(JSON.stringify(parsedOp) === '[{"method":"namespace.nestedNamespace.methodWithArgs","args":[1,2]}]', 'parseOp');
+console.assert(JSON.stringify(parsedOp) === '[{"method":"namespace.nestedNamespace.methodWithArgs","args":[1,2]}]', 'chain');
 
-console.assert(JSON.stringify(parsedOp.baseMethod) === '[{"method":"namespace.nestedNamespace.methodWithArgs","args":[1,2]},{"method":"baseMethod"}]', 'parseOp - chainable');
+console.assert(JSON.stringify(parsedOp.baseMethod) === '[{"method":"namespace.nestedNamespace.methodWithArgs","args":[1,2]},{"method":"baseMethod"}]', 'chain - chainable');
