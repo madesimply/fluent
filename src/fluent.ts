@@ -35,7 +35,8 @@ export function fluent<T extends Record<string, any>>(api: T): CombinedFluentApi
     const runMethod = (ctx: any, call: ApiCall) => {
       const { method: path, args } = call;
       const method: any = path.split(".").reduce((acc, key) => acc[key], api);
-      return method(ctx, ...(args || []));
+      const allArgs = [ctx, ...(args || []), chain];
+      return method(...allArgs);
     };
 
     const runPromises = async (ctx: any, firstResult: Promise<any>, calls: ApiCall[]) => {

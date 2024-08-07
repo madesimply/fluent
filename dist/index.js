@@ -6,7 +6,8 @@ function fluent(api) {
     const runMethod = (ctx, call) => {
       const { method: path2, args } = call;
       const method = path2.split(".").reduce((acc, key) => acc[key], api);
-      return method(ctx, ...args || []);
+      const allArgs = [ctx, ...args || [], chain];
+      return method(...allArgs);
     };
     const runPromises = async (ctx, firstResult, calls2) => {
       ctx = await firstResult;
