@@ -11,6 +11,7 @@ type CombinedFluentApi<T> = {
 type ApiCall = {
     method: string;
     args?: any[];
+    goto?: ApiCall;
 };
 declare function fluent<T extends Record<string, any>>(api: T): CombinedFluentApi<T>;
 declare const toChain: (op: string, fluent: any) => any;

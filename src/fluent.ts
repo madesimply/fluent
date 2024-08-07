@@ -24,7 +24,7 @@ export type CombinedFluentApi<T> = {
   [K in keyof T]: FluentApi<T[K], T>;
 };
 
-export type ApiCall = { method: string; args?: any[] };
+export type ApiCall = { method: string; args?: any[]; goto?: ApiCall };
 
 export function fluent<T extends Record<string, any>>(api: T): CombinedFluentApi<T> {
   let chain: any = null;
@@ -50,14 +50,43 @@ export function fluent<T extends Record<string, any>>(api: T): CombinedFluentApi
       return ctx;
     };
 
-    const run = (ctx: any) => {
-      for (const call of calls) {
+    // search from current index to end of calls
+    // if not found, search from start to current index
+    const callIndex = (call, current) => {
+      const remaining = calls.slice(current + 1);
+      const gotoCall = JSON.stringify(call);
+      const nextIndex = remaining.findIndex(
+        (c) => JSON.stringify(c) === gotoCall
+      );
+      if (nextIndex > -1) {
+        return nextIndex;
+      }
+      const start = calls.slice(0, current + 1);
+      const prevIndex = start.findIndex(
+        ({ goto, ...c }) => JSON.stringify(c) === gotoCall
+      );
+      return prevIndex;
+    };
+
+    const run = (ctx, from = 0) => {
+      let goto = -1;
+      for (let i = from; i < calls.length; i++) {
+        let call = calls[i];
+        if (call.goto && call.goto.args) {
+          const index = callIndex(call.goto.args[0], i);
+          if (index > -1) goto = index;
+        }
         const result = runMethod(ctx, call);
         if (result instanceof Promise) {
           const remaining = calls.slice(calls.indexOf(call) + 1);
           return runPromises(ctx, result, remaining);
         }
         ctx = result;
+        if (goto > -1) 
+          continue;
+      }
+      if (goto > -1) {
+        setTimeout(() => run(ctx, goto), 0);
       }
       return ctx;
     };
@@ -66,6 +95,16 @@ export function fluent<T extends Record<string, any>>(api: T): CombinedFluentApi
       get(_, prop: string | symbol): any {
         if (prop === "run") return run;
         if (prop === "toJSON") return () => calls;
+        if (prop === "goto")
+          return (call: ApiCall) => {
+            const goto = {
+              method: "goto",
+              args: JSON.parse(JSON.stringify(call)),
+            };
+            calls[calls.length - 1].goto = goto;
+            return createProxy([...calls], path);
+          };
+
         if (typeof prop !== "string") return undefined;
 
         const baseTarget = prop in api ? api[prop] : undefined;
@@ -107,7 +146,13 @@ export const toChain = (op: string, fluent: any): any => {
     const methods = method.split(".");
     for (const m of methods) {
       if (methods.indexOf(m) === methods.length - 1 && args?.length) {
-        current = current[m](...(args || []));
+        const _args = args.map((arg) => { 
+          const args = Array.isArray(arg) ? arg : [arg];
+          const hasChain = args.some((a) => a.method);
+          return hasChain ? toChain(arg, fluent) : arg;
+        });
+
+        current = current[m](..._args);
         continue;
       }
       current = current[m];

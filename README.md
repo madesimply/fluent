@@ -153,6 +153,46 @@ See the [batch user registration example](./docs/BATCH_USER_REGISTRATION.md) for
 - [Micro Libs](./docs/MICRO_LIBRARIES.md)
 - [Semantic Workflows](./docs/WORKFLOWS.md)
 
+## Chain Methods
+Fluent chains have two methods availble
+
+### run
+runs the chain with a given context and returns the result
+```typescript
+const result = root.add(3).run(0) // 3
+```
+### goto
+goes to the next equivalent operation in the chain, if not found looks from the beginning. equivalance here meaning method and args. 
+
+```typescript
+const { 
+    stepOne, 
+    stepTwo,
+    stepThree,
+    stepFour, 
+    stepFive, 
+    goto 
+} = fluent({ shouldSkip, ...steps });
+
+stepOne
+ .shouldSkip('skip', goto(stepFive))
+ .stepTwo
+ .shouldSkip('skip', goto(stepFour))
+ .stepThree
+ .stepFour
+ .stepFive.run()
+```
+it's also non blocking making it great for tasks that are recursive in nature. 
+```typescript
+// this won't block the main thread or eat up your stack
+const { hello } = fluent({ hello: () => console.log('hello forever') });
+
+// this is fine, maybe not a good idea but it's fine
+hello.goto(hello).run();
+```
+
+
+
 ## Gotchas
 
 ### Async operations
