@@ -5,12 +5,11 @@ function fluent(api) {
     const calls = [...parentCalls];
     const run = (ctx) => {
       const executeAsyncOps = async (firstPromise, atIndex) => {
-        await firstPromise;
-        return Promise.all(
-          calls.slice(atIndex + 1).map(async (item) => {
-            return executeOp(item);
-          })
-        ).then(() => ctx);
+        ctx = await firstPromise;
+        for (let i = atIndex + 1; i < calls.length; i++) {
+          ctx = await executeOp(calls[i]);
+        }
+        return ctx;
       };
       const executeOp = (item) => {
         const { method: path2, args = [] } = item;
@@ -23,6 +22,7 @@ function fluent(api) {
         if (result instanceof Promise) {
           return executeAsyncOps(result, i);
         }
+        ctx = result;
       }
       return ctx;
     };

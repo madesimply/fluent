@@ -9,35 +9,41 @@ const isString = (ctx) => {
 };
 
 const stringMethods = {
-  required: (opts) => {
-    if (!isString(opts.ctx) || !opts.ctx.value.length) {
-      opts.ctx.errors.push("String is required");
+  required: ({ ctx }) => {
+    if (!isString(ctx) || !ctx.value.length) {
+      ctx.errors.push("String is required");
     }
+    return ctx;
   },
-  min(opts, len) {
-    if (!isString(opts.ctx) || opts.ctx.value.length < len) {
-      opts.ctx.errors.push("String is too short");
+  min({ ctx }, len) {
+    if (!isString(ctx) || ctx.value.length < len) {
+      ctx.errors.push("String is too short");
     }
+    return ctx;
   },
-  max(opts, len) {
-    if (!isString(opts.ctx) || opts.ctx.value.length > len) {
-      opts.ctx.errors.push("String is too long");
+  max({ ctx }, len) {
+    if (!isString(ctx) || ctx.value.length > len) {
+      ctx.errors.push("String is too long");
     }
+    return ctx;
   },
-  pattern(opts, pattern) {
+  pattern({ ctx }, pattern) {
     const regex = new RegExp(pattern);
-    if (!isString(opts.ctx) || !regex.test(opts.ctx.value)) {
-      opts.ctx.errors.push("String does not match expected pattern");
+    if (!isString(ctx) || !regex.test(ctx.value)) {
+      ctx.errors.push("String does not match expected pattern");
     }
+    return ctx;
   },
 };
 
 // for the auth we'll expose a createToken method
 const authMethods = {
-  createToken(opts) {
-    opts.ctx.token = opts.ctx.errors.length
+  createToken({ ctx }) {
+    ctx.token = ctx.errors.length
       ? null
       : (Math.random() + 1).toString(36).substring(7);
+
+    return ctx;
   },
 };
 
@@ -70,12 +76,13 @@ console.log(result);
  *  you could create an email api then inject it into the chain
  */
 
-const sendEmail = async (opts, message) => {
-  if (opts.ctx.errors.length) {
-    opts.ctx.email = "Email not sent";
+const sendEmail = async ({ ctx }, message) => {
+  if (ctx.errors.length) {
+    ctx.email = "Email not sent";
   } else {
-    opts.ctx.email = `Email sent: ${message}`;
+    ctx.email = `Email sent: ${message}`;
   }
+  return ctx;
 };
 
 const enhancedApi = { ...api, sendEmail };

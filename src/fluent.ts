@@ -39,12 +39,11 @@ export function fluent<T extends Record<string, any>>(
 
     const run = (ctx: any) => {
       const executeAsyncOps = async (firstPromise: Promise<any>, atIndex: number) => {
-        await firstPromise;
-        return Promise.all(
-          calls.slice(atIndex + 1).map(async (item) => {
-            return executeOp(item);
-          })
-        ).then(() => ctx);  
+        ctx = await firstPromise;
+        for (let i = atIndex + 1; i < calls.length; i++) {
+          ctx = await executeOp(calls[i]);
+        }
+        return ctx;
       };
 
       const executeOp = (item: any) => {
@@ -59,8 +58,8 @@ export function fluent<T extends Record<string, any>>(
         if (result instanceof Promise) {
           return executeAsyncOps(result, i);
         }
+        ctx = result;
       }
-    
       return ctx;
     }
 

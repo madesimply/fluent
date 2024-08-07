@@ -6,24 +6,30 @@ const api = {
     opts.ctx.baseMethod = true;
     opts.ctx.fromBaseMethod = true;
     opts.chain.namespace.method.run(opts.ctx);
+    return ctx;
   },
   baseMethodWithArgs(opts, arg1, arg2) {
     opts.ctx.baseMethodWithArgs = [arg1, arg2];
+    return ctx;
   },
   namespace: {
     method(opts) {
       opts.ctx['namespace.method'] = true;
       opts.ctx['namespace.method.secondRun'] = opts.ctx.fromBaseMethod;
+      return ctx;
     },
     methodWithArgs(opts, arg1, arg2) {
       opts.ctx['namespace.methodWithArgs'] = [arg1, arg2];
+      return ctx;
     },
     nestedNamespace: {
       method(opts) {
         opts.ctx['namespace.nestedNamespace.method'] = true;
+        return ctx;
       },
       methodWithArgs(opts, arg1, arg2) {
         opts.ctx['namespace.nestedNamespace.methodWithArgs'] = [arg1, arg2];
+        return ctx;
       },
     }
   }

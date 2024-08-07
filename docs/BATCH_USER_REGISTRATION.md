@@ -61,33 +61,33 @@ export type Opts = {
 // we'll use this to check strings (email etc..)
 // we'll also provide the ability for custom error msgs
 export type StringValidator = {
-  min(opts: Opts, len: number, msg?: string): void;
-  max(opts: Opts, len: number, msg?: string): void;
-  pattern(opts: Opts, regex: string, msg?: string): void;
-  required(opts: Opts, msg?: string): void;
+  min(opts: Opts, len: number, msg?: string): Context;
+  max(opts: Opts, len: number, msg?: string): Context;
+  pattern(opts: Opts, regex: string, msg?: string): Context;
+  required(opts: Opts, msg?: string): Context;
 }
 
 // we'll use this to check numbers (age)
 // we'll also provide the ability for custom error msgs
 export type NumberValidator = {
-  min(opts: Opts, min: number, msg?: string): void;
-  max(opts: Opts, max: number, msg?: string): void;
-  required(opts: Opts, msg?: string): void;
+  min(opts: Opts, min: number, msg?: string): Context;
+  max(opts: Opts, max: number, msg?: string): Context;
+  required(opts: Opts, msg?: string): Context;
 }
 
 // we'll use this to interact with the server
 export type ServerApi = {
-  registerUser(opts: Opts): Promise<void>
+  registerUser(opts: Opts): Promise<Context>
 }
 
 // each will iterate the records for us
-export type EachRecord = (opts: Opts, ops: any[]) => Promise<void>;
+export type EachRecord = (opts: Opts, ops: any[]) => Promise<Context>;
 
 // path will set the current path and value for the rest of the ops
-export type SetPath = (opts: Opts, path: string) => void;
+export type SetPath = (opts: Opts, path: string) => Context;
 
 // this will perform check and if there's no errors will run the ops
-export type OnSuccess = (opts: Opts, ops: any[]) => Promise<void>;
+export type OnSuccess = (opts: Opts, ops: any[]) => Promise<Context>;
 
 // here's our whole api
 export type Api = {
@@ -111,22 +111,26 @@ const string: StringValidator = {
     if (typeof ctx.current.value !== "string" || ctx.current.value.length < len) {
       ctx.errors.push(msg || "String is too short");
     }
+    return ctx;
   },
   max({ ctx }, len, msg) {
     if (typeof ctx.current.value !== "string" || ctx.current.value.length > len) {
       ctx.errors.push(msg || "String is too long");
     }
+    return ctx;
   },
   pattern({ ctx }, pattern, msg) {
     const regex = new RegExp(pattern);
     if (typeof ctx.current.value !== "string" || !regex.test(ctx.current.value)) {
       ctx.errors.push(msg || "String does not match pattern");
     }
+    return ctx;
   },
   required({ ctx }, msg) {
     if (typeof ctx.current.value !== "string" || !ctx.current.value.length) {
       ctx.errors.push(msg || "String is required");
     }
+    return ctx;
   }
 }
 ```
@@ -142,16 +146,19 @@ const number: NumberValidator = {
     if (typeof ctx.current.value !== "number" || ctx.current.value < min) {
       ctx.errors.push(msg || "Number is too small");
     }
+    return ctx;
   },
   max({ ctx }, max, msg) {
     if (typeof ctx.current.value !== "number" || ctx.current.value > max) {
       ctx.errors.push(msg || "Number is too big");
     }
+    return ctx;
   },
   required({ ctx }, msg) {
     if (typeof ctx.current.value !== "number") {
       ctx.errors.push(msg || "Number is required");
     }
+    return ctx;
   }
 }
 ```
@@ -165,10 +172,12 @@ import { Server } from "./types";
 const server: Server = {
   async registerUser({ ctx }) {
     const userId = Math.random().toString(36).substring(2, 9);
-    ctx.current.record.userId = userId
+    ctx.current.record.userId = userId;
+    return ctx;
   },
   async sendNewsLetter({ ctx }) {
     ctx.current.record.newsLetterSent = true;
+    return ctx;
   }
 }
 ```
@@ -201,10 +210,12 @@ const helpers: {
         ctx.errors = [];
       }
     }
+    return ctx;
   },
   path({ ctx }, path) {
     ctx.current.path = path;
     ctx.current.value = ctx.current.record[path];
+    return ctx;
   },
   async onSuccess({ ctx, chain }, ops) {
     if (!ctx.errors.length) {
@@ -212,6 +223,7 @@ const helpers: {
         await toChain(op, chain).run(ctx)
       }
     }
+    return ctx;
   },
 }
 ```

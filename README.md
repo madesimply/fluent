@@ -1,7 +1,7 @@
 # Fluent
 
 > [!WARNING]  
-> In BETA. Slowly reaching confidence on final api but still possibility of breaking changes. Meantime provide feedback, create issues or PRs. 
+> Reaching confidence on final api, small possibility of breaking changes. Meantime provide feedback, create issues or PRs. 
 
 
 **TLDR** - Fluent helps you build complex [fluent interfaces](https://en.wikipedia.org/wiki/Fluent_interface) aka "chainable methods" easily. 
@@ -61,46 +61,50 @@ type Opts = {
  
 // for the string we'll check for length and pattern
 type VString = {
-    min: (opts: Opts, len: number) => void, 
-    max: (opts: Opts, len: number) => void, 
-    pattern: (opts: Opts, regex: string) => void,
+    min: (opts: Opts, len: number) => Contex, 
+    max: (opts: Opts, len: number) => Contex, 
+    pattern: (opts: Opts, regex: string) => Contex,
 }
 
 // helper for all string methods
-const isString = (ctx: Context) => {
+const isString = (ctx: Context): boolean => {
     const isValid = typeof ctx.value === 'string';
     if (!isValid) ctx.errors.push('Invalid string');
     return isValid;
 }
 
 const stringMethods: VString = {
-    min(opts: Opts, len: number) {
+    min(opts, len) {
         if(!isString(opts.ctx) || opts.ctx.value.length < len) {
             opts.ctx.errors.push('String is too short');
         }
+        return opts.ctx;
     },
-    max(opts: Opts, len: number) {
+    max(opts, len) {
         if(!isString(opts.ctx) || opts.ctx.value.length > len) {
             opts.ctx.errors.push('String is too long');
         }
+        return opts.ctx;
     },
-    pattern(opts: Opts, pattern: string) {
+    pattern(opts, pattern) {
         const regex = new RegExp(pattern);
         if (!isString(opts.ctx) || !regex.test(opts.ctx.value)) {
             opts.ctx.errors.push('String does not match expected pattern');
         }
+        return opts.ctx;
     }
 }
 
 // for the auth we'll expose a createToken method
 type Auth = {
-    createToken: (opts: Opts) => void,
+    createToken: (opts: Opts) => Contex,
 }
 
 const authMethods: Auth = {
-    createToken(opts: Opts) {
+    createToken(opts) {
         opts.ctx.token = opts.ctx.errors.length ? 
             null : (Math.random() + 1).toString(36).substring(7);
+        return opts.ctx;
     }
 }
 
@@ -132,7 +136,7 @@ console.log(result);
  *  you could create an email api then inject it into the chain
  */ 
 
-const sendEmail = (opts, message) => {
+const sendEmail = (opts: Opts, message: string): Context => {
   if (opts.ctx.errors.length) {
     opts.ctx.email = "Email not sent";
   } else {
@@ -151,7 +155,12 @@ const emailResult = await loginThenEmail.run(ctx);
 console.log(emailResult);
 
 ```
-See the [batch user registration example](./docs/BATCH_USER_REGISTRATION.md) for more a more complete / advanced setup.
+See the [batch user registration example](./docs/BATCH_USER_REGISTRATION.md) for more a more complete / advanced setup. Or any of the recipes for inspiration: 
+- [Config Builders](./docs/CONFIGS.md)
+- [DOM Builders](./docs/DOM_BUILDER.md)
+- [Logic Flows](./docs/LOGIC.md)
+- [Micro Libs](./docs/MICRO_LIBRARIES.md)
+- [Semantic Workflows](./docs/WORKFLOWS.md)
 
 ## Gotchas
 
