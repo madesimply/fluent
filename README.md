@@ -191,7 +191,25 @@ const { hello } = fluent({ hello: () => console.log('hello forever') });
 hello.goto(hello).run();
 ```
 
+## toChain
 
+toChain initializes a serialized chain and brings it back to life. 
+
+```typescript
+// consider this report chain
+const root = fluent(api);
+
+const chain = root.forEach(computeProfits).compileReport;
+
+// this could be stored in a db from the accounting department
+const chainJson = JSON.stringify(chain);
+
+// then later hydrated by another department
+const comms = toChain(chainJson, root);
+
+// decorated and continued
+comms.sendEmailReport.run();
+```
 
 ## Gotchas
 
@@ -205,11 +223,11 @@ string.min(8).number.even;
 ```
 
 ### Sending chains as args
-You can send to and run chains in other chain methods but assume they're serialized. Use the `toChain` method if you're doing this.
+You can send to and run chains in other chain methods.
 ```typescript
 const each(ctx, ops) => {
     for(const op of ops) {
-        toChain(op).run(ctx);
+        op.run(ctx);
     }
 }
 ```
