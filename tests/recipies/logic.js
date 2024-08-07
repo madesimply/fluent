@@ -4,7 +4,7 @@ import { fluent } from "../../dist/index.js";
  * You can use loops and operands to build up complex logical chains.
  */
 const logic = fluent({
-  _each: ({ ctx }, chains) => {
+  _each: (ctx, chains) => {
     for (const record of ctx) {
       for (const chain of chains) {
         chain.run({ ...ctx, current: record });
@@ -12,22 +12,22 @@ const logic = fluent({
     }
     return ctx;
   },
-  _or: ({ ctx }, chains) => {
+  _or: (ctx, chains) => {
     const results = [];
     for (const chain of chains) {
       results.push(chain.run(ctx));
     }
     return results.some((result) => result);
   },
-  _if: ({ ctx }, logic, then) => {
+  _if: (ctx, logic, then) => {
     if (logic.run(ctx)) {
       then.run(ctx);
     }
   },
-  _get: ({ ctx }, path) => {
+  _get: (ctx, path) => {
     return ctx.current[path];
   },
-  doSomething: ({ ctx }) => {
+  doSomething: (ctx) => {
     ctx.current.something = "has been done";
     return ctx;
   },

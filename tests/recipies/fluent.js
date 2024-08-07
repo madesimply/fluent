@@ -3,24 +3,28 @@ function fluent(api) {
   let chain = null;
   const createProxy = (parentCalls = [], path = []) => {
     const calls = [...parentCalls];
-    const run = (ctx) => {
-      const executeAsyncOps = async (firstPromise, atIndex) => {
-        ctx = await firstPromise;
-        for (let i = atIndex + 1; i < calls.length; i++) {
-          ctx = await executeOp(calls[i]);
-        }
-        return ctx;
-      };
-      const executeOp = (item) => {
-        const { method: path2, args = [] } = item;
-        const splitPath = path2.split(".");
-        const method = splitPath.reduce((acc, key) => acc[key], api);
-        return method({ ctx, chain }, ...args);
-      };
-      for (let i = 0; i < calls.length; i++) {
-        const result = executeOp(calls[i]);
+    const runMethod = (ctx, call) => {
+      const { method: path2, args } = call;
+      const method = path2.split(".").reduce((acc, key) => acc[key], api);
+      return method(ctx, ...args || []);
+    };
+    const runPromises = async (ctx, firstResult, calls2) => {
+      ctx = await firstResult;
+      for (const call of calls2) {
+        const result = runMethod(ctx, call);
         if (result instanceof Promise) {
-          return executeAsyncOps(result, i);
+          await result;
+        }
+        ctx = result;
+      }
+      return ctx;
+    };
+    const run = (ctx) => {
+      for (const call of calls) {
+        const result = runMethod(ctx, call);
+        if (result instanceof Promise) {
+          const remaining = calls.slice(calls.indexOf(call) + 1);
+          return runPromises(ctx, result, remaining);
         }
         ctx = result;
       }

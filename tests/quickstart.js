@@ -9,25 +9,25 @@ const isString = (ctx) => {
 };
 
 const stringMethods = {
-  required: ({ ctx }) => {
+  required: (ctx) => {
     if (!isString(ctx) || !ctx.value.length) {
       ctx.errors.push("String is required");
     }
     return ctx;
   },
-  min({ ctx }, len) {
+  min(ctx, len) {
     if (!isString(ctx) || ctx.value.length < len) {
       ctx.errors.push("String is too short");
     }
     return ctx;
   },
-  max({ ctx }, len) {
+  max(ctx, len) {
     if (!isString(ctx) || ctx.value.length > len) {
       ctx.errors.push("String is too long");
     }
     return ctx;
   },
-  pattern({ ctx }, pattern) {
+  pattern(ctx, pattern) {
     const regex = new RegExp(pattern);
     if (!isString(ctx) || !regex.test(ctx.value)) {
       ctx.errors.push("String does not match expected pattern");
@@ -38,7 +38,7 @@ const stringMethods = {
 
 // for the auth we'll expose a createToken method
 const authMethods = {
-  createToken({ ctx }) {
+  createToken(ctx) {
     ctx.token = ctx.errors.length
       ? null
       : (Math.random() + 1).toString(36).substring(7);
@@ -76,7 +76,7 @@ console.log(result);
  *  you could create an email api then inject it into the chain
  */
 
-const sendEmail = async ({ ctx }, message) => {
+const sendEmail = async (ctx, message) => {
   if (ctx.errors.length) {
     ctx.email = "Email not sent";
   } else {
@@ -88,6 +88,7 @@ const sendEmail = async ({ ctx }, message) => {
 const enhancedApi = { ...api, sendEmail };
 const root = fluent(enhancedApi);
 const loginChain = toChain(login, root);
+
 
 const loginThenEmail =
   loginChain.sendEmail('welcome');

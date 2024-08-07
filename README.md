@@ -46,24 +46,15 @@ type Context = {
 }
 
 /**
- * along with the context, methods are passed an chain
- * this function allows you to run other chains within methods
- */
-type Opts = {
-  ctx: Context;
-  chain?: any;
-}
-
-/**
  * setup methods you want to chain
  * let's do a string validator and auth as seperate apis
  */
  
 // for the string we'll check for length and pattern
 type VString = {
-    min: (opts: Opts, len: number) => Contex, 
-    max: (opts: Opts, len: number) => Contex, 
-    pattern: (opts: Opts, regex: string) => Contex,
+    min: (ctx: Context, len: number) => Contex, 
+    max: (ctx: Context, len: number) => Contex, 
+    pattern: (ctx: Context, regex: string) => Contex,
 }
 
 // helper for all string methods
@@ -74,37 +65,37 @@ const isString = (ctx: Context): boolean => {
 }
 
 const stringMethods: VString = {
-    min(opts, len) {
-        if(!isString(opts.ctx) || opts.ctx.value.length < len) {
-            opts.ctx.errors.push('String is too short');
+    min(ctx, len) {
+        if(!isString(ctx) || ctx.value.length < len) {
+            ctx.errors.push('String is too short');
         }
-        return opts.ctx;
+        return ctx;
     },
-    max(opts, len) {
-        if(!isString(opts.ctx) || opts.ctx.value.length > len) {
-            opts.ctx.errors.push('String is too long');
+    max(ctx, len) {
+        if(!isString(ctx) || ctx.value.length > len) {
+            ctx.errors.push('String is too long');
         }
-        return opts.ctx;
+        return ctx;
     },
-    pattern(opts, pattern) {
+    pattern(ctx, pattern) {
         const regex = new RegExp(pattern);
-        if (!isString(opts.ctx) || !regex.test(opts.ctx.value)) {
-            opts.ctx.errors.push('String does not match expected pattern');
+        if (!isString(ctx) || !regex.test(ctx.value)) {
+            ctx.errors.push('String does not match expected pattern');
         }
-        return opts.ctx;
+        return ctx;
     }
 }
 
 // for the auth we'll expose a createToken method
 type Auth = {
-    createToken: (opts: Opts) => Contex,
+    createToken: (ctx: Context) => Contex,
 }
 
 const authMethods: Auth = {
-    createToken(opts) {
-        opts.ctx.token = opts.ctx.errors.length ? 
+    createToken(ctx) {
+        ctx.token = ctx.errors.length ? 
             null : (Math.random() + 1).toString(36).substring(7);
-        return opts.ctx;
+        return ctx;
     }
 }
 
@@ -136,11 +127,11 @@ console.log(result);
  *  you could create an email api then inject it into the chain
  */ 
 
-const sendEmail = (opts: Opts, message: string): Context => {
-  if (opts.ctx.errors.length) {
-    opts.ctx.email = "Email not sent";
+const sendEmail = (ctx: Context, message: string): Context => {
+  if (ctx.errors.length) {
+    ctx.email = "Email not sent";
   } else {
-    opts.ctx.email = `Email sent: ${message}`;
+    ctx.email = `Email sent: ${message}`;
   }
 };
 
@@ -176,7 +167,7 @@ string.min(8).number.even;
 ### Sending chains as args
 You can send to and run chains in other chain methods but assume they're serialized. Use the `toChain` method if you're doing this.
 ```typescript
-const each({ ctx }, ops) => {
+const each(ctx, ops) => {
     for(const op of ops) {
         toChain(op).run(ctx);
     }
@@ -205,10 +196,10 @@ You can have methods at any level... it's completely up to you.
 ```typescript
 type FancyMethods = {
     // let's create a logic or operator at root,
-    or: ({ ctx, run }, ops: any[]) => void, 
+    or: (ctx, ops: any[]) => void, 
     // a namespace for string methods
     string: { 
-        min: ({ ctx, run }, len: number) => void,
+        min: (ctx, len: number) => void,
          // a nested namespace for certain types of strings
         email: {
             corporate: () => void, 

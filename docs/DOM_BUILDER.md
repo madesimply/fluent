@@ -65,12 +65,25 @@ namespacing to have opinionated, yet flexibe structure
       const components = {
         nav: {
           component: () => new NavComponent(),
-          setTitle: (title) => (ctx) => ctx.setTitle(title),
-          addItem: (item) => (ctx) => ctx.addItem(item),
+          setTitle: (ctx, title) => {
+            console.log(ctx, title);
+            ctx.setTitle(title)
+            return ctx;
+          },
+          addItem: (ctx, item) => {
+            ctx.addItem(item)
+            return ctx;
+          },
           link: {
             component: () => new LinkComponent(),
-            setHref: (href) => (ctx) => ctx.setHref(href),
-            setText: (text) => (ctx) => ctx.setText(text),
+            setHref: (ctx, href) => {
+              ctx.setHref(href)
+              return ctx;
+            },
+            setText: (ctx, text) => {
+              ctx.setText(text)
+              return ctx;
+            },
           }
         }
       };
@@ -83,15 +96,16 @@ namespacing to have opinionated, yet flexibe structure
           .component
             .setTitle('Main Navigation')
             .addItem(
-              link.component.setHref('#home').setText('Home')
+              nav.link.component.setHref('#home').setText('Home').run()
             )
             .addItem(
-              link.component.setHref('#about').setText('About')
+              nav.link.component.setHref('#about').setText('About').run()
             )
             .addItem(
-              link.component.setHref('#contact').setText('Contact')
-            )
+              nav.link.component.setHref('#contact').setText('Contact').run()
+            ).run()
       );
+
     </script>
   </body>
 </html>

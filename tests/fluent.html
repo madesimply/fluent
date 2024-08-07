@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script>
+      const fluent = (api) => {
+        const runMethod = (ctx, call) => {
+          const { method: path, args } = call;
+          const apiTarget = path.split(".").reduce((acc, key) => acc[key], api);
+          return apiTarget(ctx, ...(args || []));
+        };
+
+        const runPromises = async (firstResult, calls) => {
+          await firstResult;
+          for (const call of calls) {
+            const result = runMethod(ctx, call);
+            if (result instanceof Promise) {
+              await result;
+            }
+            ctx = result;
+          }
+        };
+
+        const run = (ctx, calls) => {
+          for (const call of calls) {
+            const result = runMethod(ctx, call);
+            if (result instanceof Promise) {
+              const remaining = calls.slice(calls.indexOf(call) + 1);
+              return runPromises(result, remaining);
+            }
+            ctx = result;
+          }
+          return ctx;
+        };
+
+        const proxy = (calls, path) =>
+          new Proxy(
+            {},
+            {
+              get: (target, prop) => {
+                if (prop === "toJSON") {
+                  return () => calls;
+                }
+
+                if (prop === "run") {
+                  return (ctx) => run(ctx, [...calls]);
+                }
+
+                const isRoot = api[prop] !== undefined;
+                if (isRoot) {
+                  return proxy(calls, [prop]);
+                }
+
+                const apiTarget = path.reduce((acc, key) => acc[key], api);
+                const isFunc = typeof apiTarget[prop] === "function";
+                const hasArgs = isFunc && apiTarget[prop].length > 1;
+                const isObject = !isFunc;
+
+                if (isObject) {
+                  return proxy(calls, [...path, prop]);
+                }
+
+                if (isFunc && !hasArgs) {
+                  calls.push({ method: [...path, prop].join(".") });
+                  return proxy(calls, path);
+                }
+
+                return (...args) => {
+                  calls.push({ method: [...path, prop].join("."), args });
+                  return proxy(calls, path);
+                };
+              },
+            }
+          );
+
+        return proxy([], []);
+      };
+
+      const { test } = fluent({
+        test: {
+          a: {
+            c: {
+              e: () => "hello from t",
+              f: (t, x) => `test.a.b.c${x}`,
+            },
+          },
+          b: {
+            d: (x) => 'test.b.c',
+          },
+        },
+      });
+
+      console.log(
+        test.a.c.e.test.b.d.run()
+      );
+    </script>
+  </body>
+</html>

@@ -12,7 +12,7 @@ This type of setup is also useful for data processing imo.
 import { fluent } from "../../dist/index.js";
 
 const { workflow } = fluent({
-  workflow: ({ ctx = {} }) => {
+  workflow: (ctx = {}) => {
     // set up the context
     Object.defineProperties(ctx, {
       skip: { value: false, writable: true, enumerable: false },
@@ -20,7 +20,7 @@ const { workflow } = fluent({
     ctx.processed = [];
     return ctx;
   },
-  everyMonth: ({ ctx }) => {
+  everyMonth: (ctx) => {
     // if not the first business day of the month, skip
     const day = new Date().getDate();
     const weekday = new Date().getDay();
@@ -31,7 +31,7 @@ const { workflow } = fluent({
     }
     return ctx;
   },
-  everyQuarter: ({ ctx }) => {
+  everyQuarter: (ctx) => {
     // if not the first business day of the quarter, skip
     const day = new Date().getDate();
     const weekday = new Date().getDay();
@@ -46,7 +46,7 @@ const { workflow } = fluent({
     }
     return ctx;
   },
-  everyYear: ({ ctx }) => {
+  everyYear: (ctx) => {
     // if not the first business day of the year, skip
     const day = new Date().getDate();
     const weekday = new Date().getDay();
@@ -58,43 +58,43 @@ const { workflow } = fluent({
     }
     return ctx;
   },
-  processNewsLetter: ({ ctx }) => {
+  processNewsLetter: (ctx) => {
     if (ctx.skip) return ctx;
     // do your work here
     ctx.processed.push(" -News letter");
     return ctx;
   },
-  processMonthlyReport: ({ ctx }) => {
+  processMonthlyReport: (ctx) => {
     if (ctx.skip) return ctx;
     // do your work here
     ctx.processed.push(" -Monthly report");
     return ctx;
   },
-  processQuarterlyReport: ({ ctx }) => {
+  processQuarterlyReport: (ctx) => {
     if (ctx.skip) return ctx;
     // do your work here
     ctx.processed.push(" -Quarterly report");
     return ctx;
   },
-  processAnnualReport: ({ ctx }) => {
+  processAnnualReport: (ctx) => {
     if (ctx.skip) return ctx;
     // do your work here
     ctx.processed.push(" -Annual report");
     return ctx;
   },
-  emailShareholders: ({ ctx }) => {
+  emailShareholders: (ctx) => {
     if (ctx.skip) return ctx;
     // do your work here
     ctx.processed.push(" -Email shareholders");
     return ctx;
   },
-  emailBoardMembers: ({ ctx }) => {
+  emailBoardMembers: (ctx) => {
     if (ctx.skip) return ctx;
     // do your work here
     ctx.processed.push(" -Email board members");
     return ctx;
   },
-  emailCEO: ({ ctx }) => {
+  emailCEO: (ctx) => {
     if (ctx.skip) return ctx;
     // do your work here
     ctx.processed.push(" -Email CEO");

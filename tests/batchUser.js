@@ -22,7 +22,7 @@ const data = [
 ];
 
 const string = {
-  min({ ctx }, len, msg) {
+  min(ctx, len, msg) {
     if (
       typeof ctx.current.value !== "string" ||
       ctx.current.value.length < len
@@ -31,7 +31,7 @@ const string = {
     }
     return ctx;
   },
-  max({ ctx }, len, msg) {
+  max(ctx, len, msg) {
     if (
       typeof ctx.current.value !== "string" ||
       ctx.current.value.length > len
@@ -40,7 +40,7 @@ const string = {
     }
     return ctx;
   },
-  pattern({ ctx }, pattern, msg) {
+  pattern(ctx, pattern, msg) {
     const regex = new RegExp(pattern);
     if (
       typeof ctx.current.value !== "string" ||
@@ -50,7 +50,7 @@ const string = {
     }
     return ctx;
   },
-  required({ ctx }, msg) {
+  required(ctx, msg) {
     if (typeof ctx.current.value !== "string" || !ctx.current.value.length) {
       ctx.errors.push(msg || "String is required");
     }
@@ -59,19 +59,19 @@ const string = {
 };
 
 const number = {
-  min({ ctx }, min, msg) {
+  min(ctx, min, msg) {
     if (typeof ctx.current.value !== "number" || ctx.current.value < min) {
       ctx.errors.push(msg || "Number is too small");
     }
     return ctx;
   },
-  max({ ctx }, max, msg) {
+  max(ctx, max, msg) {
     if (typeof ctx.current.value !== "number" || ctx.current.value > max) {
       ctx.errors.push(msg || "Number is too big");
     }
     return ctx;
   },
-  required({ ctx }, msg) {
+  required(ctx, msg) {
     if (typeof ctx.current.value !== "number") {
       ctx.errors.push(msg || "Number is required");
     }
@@ -80,7 +80,7 @@ const number = {
 };
 
 const serverMethods = {
-  async registerUser({ ctx }) {
+  async registerUser(ctx) {
     if (ctx.current.record.userId) {
       return;
     }
@@ -88,14 +88,14 @@ const serverMethods = {
     ctx.current.record.userId = userId;
     return ctx;
   },
-  async sendNewsLetter({ ctx }) {
+  async sendNewsLetter(ctx) {
     ctx.current.record.newsLetterSent = true;
     return ctx;
   },
 };
 
 const helpers = {
-  async each({ ctx, chain }, ops) {
+  async each(ctx, ops) {
     const isArray = Array.isArray(ctx.data);
     if (!isArray) {
       ctx.errors.push("Data is not an array");
@@ -103,25 +103,25 @@ const helpers = {
     for (const record of ctx.data) {
       ctx.current.record = record;
       for (const op of ops) {
-        await toChain(op, chain).run(ctx);
+        await op.run(ctx);
       }
       // if there's errors, add them to the record
       if (ctx.errors.length) {
         record.errors = [...ctx.errors];
-        ctx.errors = [];
+        ctx.errors.length = 0;
       }
     }
     return ctx;
   },
-  path({ ctx }, path) {
+  path(ctx, path) {
     ctx.current.path = path;
     ctx.current.value = ctx.current.record[path];
     return ctx;
   },
-  async onSuccess({ ctx, chain }, ops) {
+  async onSuccess(ctx, ops) {
     if (!ctx.errors.length) {
       for (const op of ops) {
-        await toChain(op, chain).run(ctx);
+        await op.run(ctx);
       }
     }
     return ctx;
@@ -170,22 +170,19 @@ json[0].args.slice(-1);
 
 // let's now parse it back to a chainable api
 const originalChain = toChain(json, root);
-console.log(
-  JSON.stringify(originalChain.onSuccess([server.sendNewsLetter]), null, 2)
-);
 
 // we now have an operation chain based on
 // a user registration chain
 
 // let's send a news letter to registered users
 // while not losing any of the prechecks / validations
-const op2 = originalChain.onSuccess([server.sendNewsLetter]);
+// const op2 = originalChain.onSuccess([server.sendNewsLetter]);
 
-const ctx2 = {
-  data,
-  current: { record: {}, path: "", value: "" },
-  errors: [],
-};
+// const ctx2 = {
+//   data,
+//   current: { record: {}, path: "", value: "" },
+//   errors: [],
+// };
 
-const result2 = await op2.run(ctx2);
-console.log(JSON.stringify(result2.data, null, 2));
+// const result2 = await op2.run(ctx2);
+// console.log(JSON.stringify(result2.data, null, 2));

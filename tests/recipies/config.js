@@ -10,26 +10,26 @@ import { fluent } from "../../dist/index.js";
  */
 
 const { config } = fluent({
-  config: (opts) => {
+  config: () => {
     return {};
   },
-  throttle: ({ ctx }, limit) => {
+  throttle: (ctx, limit) => {
     ctx.throttle = limit;
     return ctx;
   },
-  retry: ({ ctx }, count) => {
+  retry: (ctx, count) => {
     ctx.retry = count;
     return ctx;
   },
-  timeout: ({ ctx }, ms) => {
+  timeout: (ctx, ms) => {
     ctx.timeout = ms;
     return ctx;
   },
-  headers: ({ ctx }, headers) => {
+  headers: (ctx, headers) => {
     ctx.headers = headers;
     return ctx;
   },
-  auth: ({ ctx }, token) => {
+  auth: (ctx, token) => {
     ctx.auth = token;
     return ctx;
   },

@@ -26,42 +26,41 @@ export type CombinedFluentApi<T> = {
 
 export type ApiCall = { method: string; args?: any[] };
 
-export function fluent<T extends Record<string, any>>(
-  api: T
-): CombinedFluentApi<T> {
+export function fluent<T extends Record<string, any>>(api: T): CombinedFluentApi<T> {
   let chain: any = null;
 
-  const createProxy = (
-    parentCalls: ApiCall[] = [],
-    path: string[] = []
-  ): any => {
+  const createProxy = (parentCalls: ApiCall[] = [], path: string[] = []): any => {
     const calls = [...parentCalls];
 
-    const run = (ctx: any) => {
-      const executeAsyncOps = async (firstPromise: Promise<any>, atIndex: number) => {
-        ctx = await firstPromise;
-        for (let i = atIndex + 1; i < calls.length; i++) {
-          ctx = await executeOp(calls[i]);
-        }
-        return ctx;
-      };
+    const runMethod = (ctx: any, call: ApiCall) => {
+      const { method: path, args } = call;
+      const method: any = path.split(".").reduce((acc, key) => acc[key], api);
+      return method(ctx, ...(args || []));
+    };
 
-      const executeOp = (item: any) => {
-        const { method: path, args = [] } = item;
-        const splitPath = path.split(".");
-        const method = splitPath.reduce((acc, key) => acc[key], api);
-        return method({ ctx, chain }, ...args);
-      };
-    
-      for (let i = 0; i < calls.length; i++) {
-        const result = executeOp(calls[i]);
+    const runPromises = async (ctx: any, firstResult: Promise<any>, calls: ApiCall[]) => {
+      ctx = await firstResult;
+      for (const call of calls) {
+        const result = runMethod(ctx, call);
         if (result instanceof Promise) {
-          return executeAsyncOps(result, i);
+          await result;
         }
         ctx = result;
       }
       return ctx;
-    }
+    };
+
+    const run = (ctx: any) => {
+      for (const call of calls) {
+        const result = runMethod(ctx, call);
+        if (result instanceof Promise) {
+          const remaining = calls.slice(calls.indexOf(call) + 1);
+          return runPromises(ctx, result, remaining);
+        }
+        ctx = result;
+      }
+      return ctx;
+    };
 
     const handler: ProxyHandler<any> = {
       get(_, prop: string | symbol): any {
@@ -69,12 +68,10 @@ export function fluent<T extends Record<string, any>>(
         if (prop === "toJSON") return () => calls;
         if (typeof prop !== "string") return undefined;
 
-        const baseTarget =
-          prop in api ? api[prop] : undefined;
+        const baseTarget = prop in api ? api[prop] : undefined;
         const newPath = baseTarget ? [prop] : [...path, prop];
         const fullPath = newPath.join(".");
-        const target =
-          baseTarget || newPath.reduce((acc, key) => acc[key], api);
+        const target = baseTarget || newPath.reduce((acc, key) => acc[key], api);
 
         if (typeof target === "object") {
           return createProxy(calls, newPath);

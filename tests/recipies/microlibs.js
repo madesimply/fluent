@@ -2,44 +2,44 @@ import { fluent } from "../../dist/index.js";
 
 const validator = fluent({
   string: {
-    min: ({ ctx }, len) => {
+    min: (ctx, len) => {
       if (ctx.length < len) return undefined;
       return ctx;
     },
-    max: ({ ctx }, len) => {
+    max: (ctx, len) => {
       if (ctx.length > len) return undefined;
       return ctx;
     },
-    email: ({ ctx }) => {
+    email: (ctx) => {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ctx)) return undefined;
       return ctx;
     },
   },
   number: {
-    min: ({ ctx }, value) => {
+    min: (ctx, value) => {
       if (ctx < value) return undefined;
       return ctx;
     },
-    max: ({ ctx }, value) => {
+    max: (ctx, value) => {
       if (ctx > value) return undefined;
       return ctx;
     },
-    positive: ({ ctx }) => {
+    positive: (ctx) => {
       if (ctx <= 0) return undefined;
       return ctx;
     },
   },
   array: {
-    minLength: ({ ctx }, len) => {
+    minLength: (ctx, len) => {
       if (ctx?.length < len) return undefined;
       return ctx;
     },
-    maxLength: ({ ctx }, len) => {
+    maxLength: (ctx, len) => {
       if (ctx?.length > len) return undefined;
       return ctx;
     },
   },
-  bool({ ctx }) {
+  bool(ctx) {
     return ctx !== undefined;
   }
 });

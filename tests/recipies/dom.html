@@ -57,21 +57,22 @@
       const components = {
         nav: {
           component: () => new NavComponent(),
-          setTitle: ({ctx}, title) => {
+          setTitle: (ctx, title) => {
+            console.log(ctx, title);
             ctx.setTitle(title)
             return ctx;
           },
-          addItem: ({ctx}, item) => {
+          addItem: (ctx, item) => {
             ctx.addItem(item)
             return ctx;
           },
           link: {
             component: () => new LinkComponent(),
-            setHref: ({ctx}, href) => {
+            setHref: (ctx, href) => {
               ctx.setHref(href)
               return ctx;
             },
-            setText: ({ctx}, text) => {
+            setText: (ctx, text) => {
               ctx.setText(text)
               return ctx;
             },
@@ -96,6 +97,7 @@
               nav.link.component.setHref('#contact').setText('Contact').run()
             ).run()
       );
+
     </script>
   </body>
 </html>
