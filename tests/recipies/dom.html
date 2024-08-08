@@ -82,6 +82,12 @@
 
       const { nav } = fluent(components);
 
+      const { hello, goto } = fluent({
+        hello: () => console.log('Hello'),
+      })
+
+      hello.goto(hello).run();
+ 
       // Using the fluent API 
       document.body.appendChild(
         nav
