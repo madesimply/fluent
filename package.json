@@ -6,6 +6,12 @@
     "url": "https://github.com/paulpomerleau"
   },
   "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "files": ["dist"],

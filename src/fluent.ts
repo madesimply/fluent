@@ -16,21 +16,21 @@ function runMethod(api: Record<string, any>, ctx: any, call: ApiCall) {
 /**
  * Executes a sequence of API calls, handling promises for asynchronous operations.
  * @param {Record<string, any>} api - The API object containing the methods.
- * @param {any} ctx - The initial context object.
+ * @param {any} data - The initial context object.
  * @param {Promise<any>} firstResult - The result of the first API call.
  * @param {ApiCall[]} calls - An array of subsequent API calls to execute.
  * @returns {Promise<any>} - A promise that resolves to the final context after all calls are executed.
  */
-async function runPromises(api: Record<string, any>, ctx: any, firstResult: Promise<any>, calls: ApiCall[]) {
-  ctx = await firstResult;
+async function runPromises(api: Record<string, any>, data: any, firstResult: Promise<any>, calls: ApiCall[]) {
+  data = await firstResult;
   for (const call of calls) {
-    const result = runMethod(api, ctx, call);
+    const result = runMethod(api, data, call);
     if (result instanceof Promise) {
       await result;
     }
-    ctx = result;
+    data = result === undefined ? data : result;
   }
-  return ctx;
+  return data;
 }
 
 /**
@@ -76,11 +76,11 @@ function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall
         const remaining = calls.slice(calls.indexOf(call) + 1);
         return runPromises(api, data, result, remaining);
       }
-      data = result;
+      data = result === undefined ? data : result;
       if (goto > -1) continue;
     }
     if (goto > -1) {
-      if (ctx.blocking) {
+      if (ctx?.fluent?.blocking) {
         return run(data, goto);
       } {
         setTimeout(() => run(data, goto), 0);
