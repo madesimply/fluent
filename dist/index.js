@@ -26,7 +26,7 @@ function callIndex(calls, call, current) {
   const prevIndex = start.findIndex(({ goto, ...c }) => JSON.stringify(c) === gotoCall);
   return prevIndex;
 }
-function createProxy(api, parentCalls = [], path = []) {
+function createProxy(api, parentCalls = [], path = [], config) {
   const calls = [...parentCalls];
   const run = (ctx, from = 0) => {
     let goto = -1;
@@ -60,7 +60,7 @@ function createProxy(api, parentCalls = [], path = []) {
             args: JSON.parse(JSON.stringify(call))
           };
           calls[calls.length - 1].goto = goto;
-          return createProxy(api, [...calls], path);
+          return createProxy(api, [...calls], path, config);
         };
       if (typeof prop !== "string") return void 0;
       const baseTarget = prop in api ? api[prop] : void 0;
@@ -68,15 +68,15 @@ function createProxy(api, parentCalls = [], path = []) {
       const fullPath = newPath.join(".");
       const targetValue = newPath.reduce((acc, key) => acc[key], api);
       if (typeof targetValue === "object" && targetValue !== null) {
-        return createProxy(api, calls, newPath);
+        return createProxy(api, calls, newPath, config);
       }
       if (typeof targetValue === "function") {
         const func = targetValue;
         if (func.length <= 1) {
-          return createProxy(api, [...calls, { method: fullPath }], path);
+          return createProxy(api, [...calls, { method: fullPath }], path, config);
         }
         return (...args) => {
-          return createProxy(api, [...calls, { method: fullPath, args }], path);
+          return createProxy(api, [...calls, { method: fullPath, args }], path, config);
         };
       }
       return void 0;
@@ -85,9 +85,23 @@ function createProxy(api, parentCalls = [], path = []) {
   return new Proxy(() => {
   }, handler);
 }
-function fluent(api, chain = []) {
+function bindConfigToApi(api, ctx) {
+  const boundApi = {};
+  for (const key in api) {
+    if (typeof api[key] === "function") {
+      boundApi[key] = api[key].bind(ctx);
+    } else if (typeof api[key] === "object" && api[key] !== null) {
+      boundApi[key] = bindConfigToApi(api[key], ctx);
+    } else {
+      boundApi[key] = api[key];
+    }
+  }
+  return boundApi;
+}
+function fluent({ api, chain = [], ctx }) {
   const path = chain.length ? chain.slice(-1)[0].method.split(".").slice(0, -1) : [];
-  return createProxy(api, chain, path);
+  const boundApi = bindConfigToApi(api, ctx || {});
+  return createProxy(boundApi, chain, path, ctx || {});
 }
 export {
   fluent

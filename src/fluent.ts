@@ -1,4 +1,4 @@
-import { ApiCall, Fluent } from "./types";
+import { ApiCall, Ctx, Fluent, RequiredContext } from "./types";
 
 function runMethod(api: Record<string, any>, ctx: any, call: ApiCall) {
   const { method, args } = call;
@@ -30,7 +30,7 @@ function callIndex(calls: ApiCall[], call: ApiCall, current: number) {
   return prevIndex;
 }
 
-function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall[] = [], path: string[] = []): any {
+function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall[] = [], path: string[] = [], config: Ctx): any {
   const calls = [...parentCalls];
 
   const run = (ctx: any, from = 0) => {
@@ -66,7 +66,7 @@ function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall
             args: JSON.parse(JSON.stringify(call)),
           };
           calls[calls.length - 1].goto = goto;
-          return createProxy(api, [...calls], path);
+          return createProxy(api, [...calls], path, config);
         };
 
       if (typeof prop !== "string") return undefined;
@@ -77,16 +77,16 @@ function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall
       const targetValue = newPath.reduce((acc, key) => acc[key], api);
 
       if (typeof targetValue === "object" && targetValue !== null) {
-        return createProxy(api, calls, newPath);
+        return createProxy(api, calls, newPath, config);
       }
 
       if (typeof targetValue === "function") {
         const func = targetValue as Function;
         if (func.length <= 1) {
-          return createProxy(api, [...calls, { method: fullPath }], path);
+          return createProxy(api, [...calls, { method: fullPath }], path, config);
         }
         return (...args: any[]) => {
-          return createProxy(api, [...calls, { method: fullPath, args }], path);
+          return createProxy(api, [...calls, { method: fullPath, args }], path, config);
         };
       }
 
@@ -97,10 +97,26 @@ function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall
   return new Proxy(() => {}, handler);
 }
 
-export function fluent<T extends Record<string, any>>(api: T): Fluent<T>;
-export function fluent<T extends Record<string, any>>(api: T, chain: ApiCall[]): Fluent<T>;
+function bindConfigToApi<T extends Record<string, any>>(api: T, ctx: Ctx): T {
+  const boundApi = {} as T;
 
-export function fluent<T extends Record<string, any>>(api: T, chain: ApiCall[] = []): Fluent<T> {
+  for (const key in api) {
+    if (typeof api[key] === 'function') {
+      // Bind the configuration to the function
+      boundApi[key] = api[key].bind(ctx);
+    } else if (typeof api[key] === 'object' && api[key] !== null) {
+      // Recursively bind the configuration for nested objects
+      boundApi[key] = bindConfigToApi(api[key], ctx);
+    } else {
+      boundApi[key] = api[key];
+    }
+  }
+
+  return boundApi;
+}
+
+export function fluent<T extends Record<string, any>>({ api, chain = [], ctx } : { api: T, chain?: ApiCall[], ctx: RequiredContext<T>}): Fluent<T> {
   const path = chain.length ? chain.slice(-1)[0].method.split('.').slice(0,-1) : [];
-  return createProxy(api, chain, path) as Fluent<T>;
+  const boundApi = bindConfigToApi(api, ctx || {});
+  return createProxy(boundApi, chain, path, ctx || {}) as Fluent<T>;
 }

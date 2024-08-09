@@ -21,47 +21,50 @@ npm install https://github.com/paulpomerleau/fluent
 import { fluent } from "../dist/index.js";
 
 // build your fluent methods
-// you must always return the context (first arg)
 
-// mock of checking the weather via api
-const withWeather = (context) => {
-  const weather = ["cold", "mild", "hot"];
-  const index = Math.floor(Math.random() * weather.length);
-  context.weather = weather[index];
-
-  return context;
-};
-
-// checks the time of day
-const withTimeOfDay = (context) => {
+// methods get the data parameter from the run
+// and is returned to pass along the chain
+const withTimeOfDay = (data) => {
   const time = new Date().getHours();
   if (time < 12) {
-    context.time = "morning";
+    data.time = "morning";
   } else if (time < 18) {
-    context.time = "afternoon";
+    data.time = "afternoon";
   } else {
-    context.time = "evening";
+    data.time = "evening";
   }
 
-  return context;
+  return data;
 };
 
-// says hello with arguments
-const sayHello = (context, name) => {
-  const { time, weather } = context;
+// methods can accept aruments from the chain
+const sayHello = (data, name) => {
+  const { time, weather } = data;
   const message = `
     Hello${time ? ` good ${time}` : ''}${name ? ` ${name}` : ''}!
     ${weather ? `Looks like a ${weather} day today` : ""}
   `;
 
   console.log(message);
-  return context;
+  return data;
+};
+
+// methods have context to access global config
+const withWeather = (data) => {
+  const weather = ["cold", "mild", "hot"];
+  const apiKey = this.apiKey;
+
+  // mock call for the weather
+  const index = Math.floor(Math.random() * weather.length);
+  data.weather = weather[index];
+
+  return data;
 };
 
 const greetingApi = { withTimeOfDay, withWeather, sayHello };
 
 // let's build our fluent instance
-const api = fluent(greetingApi);
+const api = fluent({ api: greetingApi, ctx: { apiKey: 'mykey' }});
 
 // now we can build up our chain
 const chain = api.withTimeOfDay.sayHello("Bob");
@@ -75,7 +78,7 @@ const withStockPrices = context => context;
 const enhancedApi = { ...greetingApi, withNews, withStockPrices };
 
 // you can add more functionality later
-const api2 = fluent(enhancedApi);
+const api2 = fluent({ api: enhancedApi });
 
 const chain2 = api2.withWeather.withNews.sayHello("Alice");
 
@@ -88,10 +91,8 @@ const json = JSON.parse(JSON.stringify(chain2));
 // you can modify and build back up chains
 const withoutSayHello = json.slice(0, -1);
 
-
 // passing a chain inits to the last step
-const rehydratedChain = fluent(enhancedApi, withoutSayHello);
-
+const rehydratedChain = fluent({ api: enhancedApi, chain: withoutSayHello });
 
 // now we can add to it and run it
 // outputs: Hello good morning Tim! Looks like a cold day today
@@ -100,6 +101,33 @@ rehydratedChain
     .sayHello("Tim")
     .run({});
 ```
+
+## Fluent Argument
+
+### api
+a object containing your api methods
+
+```typescript
+const api = {
+    hello() { console.log('hello' )},
+    world() { console.log('world') }
+};
+
+const root = fluent({ api });
+
+const chain = root.hello;
+```
+
+### chain
+optional chain to re-hydrate against the api
+```typescript
+
+const hello = fluent({ api, chain });
+```
+
+### contex
+you can pass context in that methods will be bound to for global api settings.
+
 
 ## Chain Methods
 Fluent chains have two methods availble
@@ -132,7 +160,7 @@ const {
     stepFour, 
     stepFive, 
     goto 
-} = fluent({ shouldSkip, ...steps });
+} = fluent({ api: { shouldSkip, ...steps }});
 
 stepOne
  .shouldSkip('skip', goto(stepFive))
@@ -145,7 +173,7 @@ stepOne
 it's also non blocking making it great for tasks that are recursive in nature. 
 ```typescript
 // this won't block the main thread or eat up your stack
-const { hello } = fluent({ hello: () => console.log('hello forever') });
+const { hello } = fluent({ api: { hello: () => console.log('hello forever') }});
 
 // this is fine, maybe not a good idea but it's fine
 hello
@@ -165,9 +193,9 @@ const result = await chain.asyncMethod.run({});
 ### Sending chains as args
 You can send to and run chains in other chain methods.
 ```typescript
-const each(ctx, ops) => {
+const each(data, ops) => {
     for(const op of ops) {
-        op.run(ctx);
+        op.run(data);
     }
 }
 ```
@@ -190,10 +218,10 @@ chain.withNplusArgs([...data]);
 Because the chains can be serialized, ensure your args are too. If you need to send non-serializable objects / functions, do it by reference and context. 
 
 ```typescript
-const saySomething = (ctx, pointer) => {
-    const message = ctx[pointer];
+const saySomething = (data, pointer) => {
+    const message = data[pointer];
     console.log(message);
-    return ctx;
+    return data;
 }
 
 // later
@@ -212,18 +240,18 @@ You can have methods at any level... it's completely up to you.
 ```typescript
 const api = {
     // let's create a logic or operator at root,
-    or: ctx => ctx,
+    or: data => data,
     // a namespace for string methods
     string: { 
-        min: ctx => ctx,
+        min: data => data,
          // a nested namespace for certain types of strings
         email: {
-            corporate: ctx => ctx,
-            gmail: ctx => ctx,
+            corporate: data => data,
+            gmail: data => data,
         }
     },
     auth: {
-        registerLead: ctx => ctx,
+        registerLead: data => data,
     }
 }
 
@@ -239,11 +267,11 @@ Chain methods are fully type safe.
 
 ```typescript
 const api: {
-    method: (ctx: any) => ctx,
-    withArgs: (ctx: any, test: string) => ctx,
+    method: (data: any) => data,
+    withArgs: (data: any, test: string) => data,
 } = {
-    method: ctx => ctx,
-    withArgs: (ctx, test) => ctx,
+    method: data => data,
+    withArgs: (data, test) => data,
 }
 
 // later
@@ -254,16 +282,16 @@ root.method.withArgs() // typerror
 ### Namespace traversal
 You can switch to another namespace anywhere in your chain by calling a root. 
 ```typescript
-const api = fluent({
-    base: ctx => ctx,
+const api = fluent({ api: {
+    base: data => data,
     namespace: {
-        first: ctx => ctx,
-        second: ctx => ctx,
+        first: data => data,
+        second: data => data,
     },
     different: {
-        third: ctx =>ctx,
+        third: data =>data,
     }
-});
+}});
 
 root = 
     base
