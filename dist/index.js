@@ -98,7 +98,11 @@ function bindConfigToApi(api, ctx) {
   }
   return boundApi;
 }
-function fluent({ api, chain = [], ctx }) {
+function fluent({
+  api,
+  chain = [],
+  ctx
+}) {
   const path = chain.length ? chain.slice(-1)[0].method.split(".").slice(0, -1) : [];
   const boundApi = bindConfigToApi(api, ctx || {});
   return createProxy(boundApi, chain, path, ctx || {});
