@@ -1,20 +1,13 @@
 # Fluent
 
 > [!WARNING]  
-> Reaching confidence on final api, small possibility of breaking changes. Meantime provide feedback, create issues or PRs. 
+> Almost full confidence on final api, small possibility of breaking changes. 
 
-
-**TLDR** - Fluent helps you build complex [fluent interfaces](https://en.wikipedia.org/wiki/Fluent_interface) aka "chainable methods" easily. 
-
-Fluent is a lightweight TypeScript library designed to help you build complex, strongly typed fluent APIs with ease. It provides a flexible and intuitive way to create and execute chains of operations, which can include validations, data transformations, API calls, and more. Fluent simplifies the process of constructing these operation chains. When used effectively, it allows you to write logic that reads like the business requirement equivalent, making it easier to align your code with business rules. Additionally, Fluent's programming paradigm encourages the use of small, reusable methods, which enhances testability and supports robust and reliable development.
+Fluent helps you build complex [fluent interfaces](https://en.wikipedia.org/wiki/Fluent_interface) (chainable methods). Fluent chains are typesafe, serializable, non-blocking and when setup thoughfully - can lead to extremely legible, testable and portable code. 
 
 ## Motivation
 
-**TLDR** - Fluent interfaces are great to use but hard to setup, harder to maintain. This aims to remove the shortcomings.
-
-[Fluent Interface](https://en.wikipedia.org/wiki/Fluent_interface) patterns can make your code very succinct and semantic. This can be extermely beneficial for complex business logic. But traditional fluent interface patterns have some challenged with [error capture](https://en.wikipedia.org/wiki/Fluent_interface#Errors_cannot_be_captured_at_compile_time), [debugging](https://en.wikipedia.org/wiki/Fluent_interface#Debugging_and_error_reporting), [logging](https://en.wikipedia.org/wiki/Fluent_interface#Logging), [subclassing](https://en.wikipedia.org/wiki/Fluent_interface#Subclasses), [maintenance](https://www.yegor256.com/2018/03/13/fluent-interfaces.html#:~:text=Fluent%20interfaces%20are%20good%20for%20users%2C%20but%20bad%20for%20library,an%20advantage%2C%20not%20a%20drawback.). Furthermore methods and their relationships must be known at the time you're building them, you have to make assumptions about how they'll be used. 
-
-Leveraging TypeScript, Proxies and the concept of context... Fluent allows you to build fluent apis without the challenges and some added benefit.
+[Fluent Interface](https://en.wikipedia.org/wiki/Fluent_interface) patterns are great to use but can but hard to setup, harder to maintain. ([error capture](https://en.wikipedia.org/wiki/Fluent_interface#Errors_cannot_be_captured_at_compile_time), [debugging](https://en.wikipedia.org/wiki/Fluent_interface#Debugging_and_error_reporting), [logging](https://en.wikipedia.org/wiki/Fluent_interface#Logging), [subclassing](https://en.wikipedia.org/wiki/Fluent_interface#Subclasses), [maintenance](https://www.yegor256.com/2018/03/13/fluent-interfaces.html#:~:text=Fluent%20interfaces%20are%20good%20for%20users%2C%20but%20bad%20for%20library,an%20advantage%2C%20not%20a%20drawback.)). This aims to remove the shortcomings.
 
 ## Installation
 
@@ -27,131 +20,89 @@ npm install https://github.com/paulpomerleau/fluent
 ## Quickstart
 
 ```typescript
-// import your library and types 
-import { fluent, toChain } from "./fluent"
+// import
+import { fluent } from "../dist/index.js";
 
-/** 
- * setup context type (can be anything)
- * context is passed to all methods in the chain
- * and retuned at the end
- * 
- * type Ctx = {
- *     [key: string]: any - add whatever you want
- * }
- */
-type Context = {
-    value: any; // we'll use the value key to set our input
-    errors: string[]; // let's track any errors here
-    token: string | null; // we'll store the token here
-}
+// build your fluent methods
+// you must always return the context (first arg)
 
-/**
- * setup methods you want to chain
- * let's do a string validator and auth as seperate apis
- */
- 
-// for the string we'll check for length and pattern
-type VString = {
-    min: (ctx: Context, len: number) => Contex, 
-    max: (ctx: Context, len: number) => Contex, 
-    pattern: (ctx: Context, regex: string) => Contex,
-}
+// mock of checking the weather via api
+const withWeather = (context) => {
+  const weather = ["cold", "mild", "hot"];
+  const index = Math.floor(Math.random() * weather.length);
+  context.weather = weather[index];
 
-// helper for all string methods
-const isString = (ctx: Context): boolean => {
-    const isValid = typeof ctx.value === 'string';
-    if (!isValid) ctx.errors.push('Invalid string');
-    return isValid;
-}
-
-const stringMethods: VString = {
-    min(ctx, len) {
-        if(!isString(ctx) || ctx.value.length < len) {
-            ctx.errors.push('String is too short');
-        }
-        return ctx;
-    },
-    max(ctx, len) {
-        if(!isString(ctx) || ctx.value.length > len) {
-            ctx.errors.push('String is too long');
-        }
-        return ctx;
-    },
-    pattern(ctx, pattern) {
-        const regex = new RegExp(pattern);
-        if (!isString(ctx) || !regex.test(ctx.value)) {
-            ctx.errors.push('String does not match expected pattern');
-        }
-        return ctx;
-    }
-}
-
-// for the auth we'll expose a createToken method
-type Auth = {
-    createToken: (ctx: Context) => Contex,
-}
-
-const authMethods: Auth = {
-    createToken(ctx) {
-        ctx.token = ctx.errors.length ? 
-            null : (Math.random() + 1).toString(36).substring(7);
-        return ctx;
-    }
-}
-
-// now we can create our fluent api
-const api = { string: stringMethods, auth: authMethods };
-const { string, auth } = fluent(api);
-
-// setup the chains you'll need
-const isEmail = /^\S+@\S+\.\S+$/.source;
-const login = string.pattern(isEmail).auth.createToken;
-const ctx = { value: 'test@email.com', errors: [] };
-
-// now you can run this chain against any number of values
-// run functions always return a promise
-const result = await login.run(ctx);
-console.log(result);
-/** 
- * output:
- * {
- *   value: 'test@email.com',
- *   errors: [],
- *   token: 'p8ze5g'
- * }
- */
-
-/** 
- *  later it's graceful to add more constraints or functionality
- *  for example, if you wanted to add an email.send method
- *  you could create an email api then inject it into the chain
- */ 
-
-const sendEmail = (ctx: Context, message: string): Context => {
-  if (ctx.errors.length) {
-    ctx.email = "Email not sent";
-  } else {
-    ctx.email = `Email sent: ${message}`;
-  }
+  return context;
 };
 
-const enhancedApi = { ...api, sendEmail };
-const root = fluent(enhancedApi);
-const loginChain = toChain(login, root);
+// checks the time of day
+const withTimeOfDay = (context) => {
+  const time = new Date().getHours();
+  if (time < 12) {
+    context.time = "morning";
+  } else if (time < 18) {
+    context.time = "afternoon";
+  } else {
+    context.time = "evening";
+  }
 
-const loginThenEmail =
-  loginChain.sendEmail('welcome');
+  return context;
+};
 
-const emailResult = await loginThenEmail.run(ctx);
-console.log(emailResult);
+// says hello with arguments
+const sayHello = (context, name) => {
+  const { time, weather } = context;
+  const message = `
+    Hello${time ? ` good ${time}` : ''}${name ? ` ${name}` : ''}!
+    ${weather ? `Looks like a ${weather} day today` : ""}
+  `;
 
+  console.log(message);
+  return context;
+};
+
+const greetingApi = { withTimeOfDay, withWeather, sayHello };
+
+// let's build our fluent instance
+const api = fluent(greetingApi);
+
+// now we can build up our chain
+const chain = api.withTimeOfDay.sayHello("Bob");
+
+// output: Hello good morning Bob!
+chain.run({});
+
+// implement as many as you want ...
+const withNews = context => context;
+const withStockPrices = context => context;
+const enhancedApi = { ...greetingApi, withNews, withStockPrices };
+
+// you can add more functionality later
+const api2 = fluent(enhancedApi);
+
+const chain2 = api2.withWeather.withNews.sayHello("Alice");
+
+// output: Hello Alice! Looks like a cold day today
+chain2.run({});
+
+// you can serialize chains
+const json = JSON.parse(JSON.stringify(chain2));
+
+// you can modify and build back up chains
+const withoutSayHello = json.slice(0, -1);
+
+
+// passing a chain inits to the last step
+const rehydratedChain = fluent(enhancedApi, withoutSayHello);
+
+
+// now we can add to it and run it
+// outputs: Hello good morning Tim! Looks like a cold day today
+rehydratedChain
+    .withTimeOfDay
+    .sayHello("Tim")
+    .run({});
 ```
-See the [batch user registration example](./docs/BATCH_USER_REGISTRATION.md) for more a more complete / advanced setup. Or any of the recipes for inspiration: 
-- [Config Builders](./docs/CONFIGS.md)
-- [DOM Builders](./docs/DOM_BUILDER.md)
-- [Logic Flows](./docs/LOGIC.md)
-- [Micro Libs](./docs/MICRO_LIBRARIES.md)
-- [Semantic Workflows](./docs/WORKFLOWS.md)
 
 ## Chain Methods
 Fluent chains have two methods availble
@@ -159,10 +110,22 @@ Fluent chains have two methods availble
 ### run
 runs the chain with a given context and returns the result
 ```typescript
-const result = root.add(3).run(0) // 3
+const result = root
+    .add(3)
+    .run(0) // 3
 ```
+
+### toJSON
+returns an object representation of the chain. usually used for serialization via `JSON.stringify(chain)` but handy if you need to make chain transformations.
+```typescript
+const result = root
+    .add(3)
+    .run(0) // 3
+```
+
+
 ### goto
-goes to the next equivalent operation in the chain, if not found looks from the beginning. equivalance here meaning method and args. 
+goes to the next equivalent operation in the chain, if not found looks from the beginning. exact match with methods and args.
 
 ```typescript
 const { 
@@ -177,9 +140,9 @@ const {
 stepOne
  .shouldSkip('skip', goto(stepFive))
  .stepTwo
- .shouldSkip('skip', goto(stepFour))
+ .shouldSkip('skip', goto(stepFour('with args')))
  .stepThree
- .stepFour
+ .stepFour('with args')
  .stepFive.run()
 ```
 it's also non blocking making it great for tasks that are recursive in nature. 
@@ -188,27 +151,9 @@ it's also non blocking making it great for tasks that are recursive in nature.
 const { hello } = fluent({ hello: () => console.log('hello forever') });
 
 // this is fine, maybe not a good idea but it's fine
-hello.goto(hello).run();
-```
-
-## toChain
-
-toChain initializes a serialized chain and brings it back to life. 
-
-```typescript
-// consider this report chain
-const root = fluent(api);
-
-const chain = root.forEach(computeProfits).compileReport;
-
-// this could be stored in a db from the accounting department
-const chainJson = JSON.stringify(chain);
-
-// then later hydrated by another department
-const comms = toChain(chainJson, root);
-
-// decorated and continued
-comms.sendEmailReport.run();
+hello
+    .goto(hello)
+    .run();
 ```
 
 ## Gotchas
@@ -216,10 +161,8 @@ comms.sendEmailReport.run();
 ### Async operations
 If you have a promise in your chain you'll need to await for the ctx result. If you don't know what's in the chain, assume there's a promise.
 
-### Switching APIs in chain
-You can switch to another API anywhere in your chain by calling a root. 
 ```typescript
-string.min(8).number.even;
+const result = await chain.asyncMethod.run({});
 ```
 
 ### Sending chains as args
@@ -246,34 +189,93 @@ The workaround is to use an array.
 chain.withNplusArgs([...data]);
 ```
 
-### Functions with no args are properties
-If you have functions that have no arguments defined, you can reference them as a property in the chain, not a function call. Eg a `required` function without args is chained like this: `string.min(8).required`.
+### Args must be serializable
+Because the chains can be serialized, ensure your args are too. If you need to send non-serializable objects / functions, do it by reference and context. 
+
+```typescript
+const saySomething = (ctx, pointer) => {
+    const message = ctx[pointer];
+    console.log(message);
+    return ctx;
+}
+
+// later
+chain
+  .saySomething('hello')
+  .saySomething('world')
+  .run({
+    hello => 'hello',
+    world => 'world',
+  })
+
+```
 
 ### Method namespacing
 You can have methods at any level... it's completely up to you.
 ```typescript
-type FancyMethods = {
+const api = {
     // let's create a logic or operator at root,
-    or: (ctx, ops: any[]) => void, 
+    or: ctx => ctx,
     // a namespace for string methods
     string: { 
-        min: (ctx, len: number) => void,
+        min: ctx => ctx,
          // a nested namespace for certain types of strings
         email: {
-            corporate: () => void, 
-            gmail: () => void, 
+            corporate: ctx => ctx,
+            gmail: ctx => ctx,
         }
     },
     auth: {
-        registerLead: () => void,
+        registerLead: ctx => ctx,
     }
 }
 
 // ... later
-const op = or([
-    string.email.corporate,
-    string.email.gmail
+const op = root.or([
+    root.string.email.corporate,
+    root.string.email.gmail
 ]).auth.registerLead;
+```
+
+### Typescript Support
+Chain methods are fully type safe.
+
+```typescript
+const api: {
+    method: (ctx: any) => ctx,
+    withArgs: (ctx: any, test: string) => ctx,
+} = {
+    method: ctx => ctx,
+    withArgs: (ctx, test) => ctx,
+}
+
+// later
+root.method //fine
+root.method.withArgs() // typerror
+```
+
+### Namespace traversal
+You can switch to another namespace anywhere in your chain by calling a root. 
+```typescript
+const api = fluent({
+    base: ctx => ctx,
+    namespace: {
+        first: ctx => ctx,
+        second: ctx => ctx,
+    },
+    different: {
+        third: ctx =>ctx,
+    }
+});
+
+root = 
+    base
+        // we're in namespace and can chain namespace methods
+        .namespace.first.second 
+        // switch to different and use those methods
+        .different.third
+        // use a root method
+        .base
 ```
 
 ## Use Cases
@@ -281,20 +283,21 @@ const op = or([
 In general any problem space that has complex and often varying business requirements is a good candidate. Some challenges that that seem particularly suited to fluent apis:
 
 - Data validation and sanitization
-- Chaining API calls with structured error handling
+- Chaining API calls (parallel or sequenced w/promises)
 - Implementing complex business logic
 - Orchestrating multi-step workflows
-- Creating reusable and testable methods
-- Building dynamic query builders
+- Dynamic query, config, parameter builders
 - Data processing with complex requirements
-- Managing feature toggles and configurations
-- Handling user authentication and authorization flows
+- Middleware flows for auth/auth or data transforms
 - Aggregating and processing data from multiple sources
 - Coordinating event-driven actions
 
-You can also get creative. Context can be anything that can hold props (for `run` helper). It can be a function, suppose to log ops to datadog / sentry. It can be a reactive Proxy like a valtio store and trigger re-renders on your UI. It can hold many functions and store results for complex data transformations. 
-
-If you also think about touring completeness, you can create logical operands, looping at the root and math via methods. This can lead to extremely complex chains that retain their semantic legibility. This can lead to better cohesion and collaboration between development and business units eg: 
+Be creative about it... context can be anything, args can be anything serializable. 
+- function: suppose to log ops to datadog / sentry.  
+- obsverable / signal proxy: re-renders your UI when changes are made in chain.  
+- other chains: have one chain to calculate, pass another to format.
+ 
+You can also create logical operands. This can lead to extremely complex chains that retain their semantic legibility (great for cross functional teams).
 
 ```typescript
 const op = whileNotFinished([

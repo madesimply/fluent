@@ -1,4 +1,4 @@
-import { ApiCall, CombinedFluentApi } from "./types";
+import { ApiCall, Fluent } from "./types";
 
 function runMethod(api: Record<string, any>, ctx: any, call: ApiCall) {
   const { method, args } = call;
@@ -97,11 +97,10 @@ function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall
   return new Proxy(() => {}, handler);
 }
 
+export function fluent<T extends Record<string, any>>(api: T): Fluent<T>;
+export function fluent<T extends Record<string, any>>(api: T, chain: ApiCall[]): Fluent<T>;
 
-export function fluent<T extends Record<string, any>>(api: T): CombinedFluentApi<T>;
-export function fluent<T extends Record<string, any>>(api: T, chain: ApiCall[]): CombinedFluentApi<T>;
-
-export function fluent<T extends Record<string, any>>(api: T, chain: ApiCall[] = []): CombinedFluentApi<T> {
+export function fluent<T extends Record<string, any>>(api: T, chain: ApiCall[] = []): Fluent<T> {
   const path = chain.length ? chain.slice(-1)[0].method.split('.').slice(0,-1) : [];
-  return createProxy(api, chain, path) as CombinedFluentApi<T>;
+  return createProxy(api, chain, path) as Fluent<T>;
 }
