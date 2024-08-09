@@ -1,8 +1,5 @@
 # Fluent
 
-> [!WARNING]  
-> Almost full confidence on final api, small possibility of breaking changes. 
-
 Fluent helps you build complex [fluent interfaces](https://en.wikipedia.org/wiki/Fluent_interface) (chainable methods). Fluent chains are typesafe, serializable, non-blocking and when setup thoughfully - can lead to extremely legible, testable and portable code. 
 
 ## Motivation
