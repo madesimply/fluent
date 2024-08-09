@@ -102,8 +102,14 @@ function initChain(chain, api, ctx) {
   return chain.map((call) => {
     if (call.args) {
       call.args = call.args.map((arg) => {
-        if (Array.isArray(arg) && arg.every((item) => "method" in item)) {
-          return fluent({ api, chain: arg, ctx });
+        if (Array.isArray(arg)) {
+          if (arg.every((item) => "method" in item)) {
+            return fluent({ api, chain: arg, ctx });
+          }
+          return initChain(arg, api, ctx);
+        }
+        if (typeof arg === "object" && arg !== null) {
+          return initChain(Object.values(arg), api, ctx);
         }
         return arg;
       });
