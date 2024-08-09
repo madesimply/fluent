@@ -159,39 +159,44 @@ function bindConfigToApi<T extends Record<string, any>>(api: T, ctx: Ctx): T {
  * @param {RequiredContext<T>} ctx - The context object required by the API methods.
  * @returns {ApiCall[]} - The chain with serialized chains and nested structures converted into their appropriate forms.
  */
-
 export function initChain<T extends Record<string, any>>(chain: ApiCall[], api: T, ctx: RequiredContext<T>): ApiCall[] {
   return chain.map(call => {
     if (call.args) {
-      call.args = call.args.map(arg => {
-        const isArray = Array.isArray(arg);
-        const isObject = !isArray && typeof arg === 'object' && arg !== null;
-        
-        // Check if the array is a serialized chain (i.e., an array of ApiCall objects)
-        if (isArray && arg.every(a => a.method)) {
-          return fluent({ api, chain: arg, ctx });
-        } 
-        
-        // Recursively process objects
-        else if (isObject) {
-          for (const key in arg) {
-            const isKeyArray = Array.isArray(arg[key]);
-            const isKeyChain = isKeyArray && arg[key].every((a: any) => a.method);
-            if (isKeyChain) {
-              arg[key] = fluent({ api, chain: arg[key], ctx });
-            } else if (typeof arg[key] === 'object' && arg[key] !== null) {
-              arg[key] = initChain([arg[key]], api, ctx)[0];
-            }
-          }
-          return arg;
-        } 
-        
-        // Return primitive or non-chain values as-is
-        return arg;
-      });
+      call.args = call.args.map(arg => processArgument(arg, api, ctx));
     }
     return call;
   });
+}
+
+/**
+ * Processes individual arguments within an API call, handling arrays, objects, and primitives.
+ * @param {any} arg - The argument to process.
+ * @param {T} api - The API object containing methods and properties.
+ * @param {RequiredContext<T>} ctx - The context object required by the API methods.
+ * @returns {any} - The processed argument, potentially converted back into a fluent interface.
+ */
+function processArgument<T extends Record<string, any>>(arg: any, api: T, ctx: RequiredContext<T>): any {
+  const isArray = Array.isArray(arg);
+  const isObject = !isArray && typeof arg === 'object' && arg !== null;
+
+  if (isArray) {
+    // Handle arrays that may contain serialized chains or other arrays
+    if (arg.every(a => 'method' in a)) {
+      return fluent({ api, chain: arg, ctx });
+    }
+    return arg.map(item => processArgument(item, api, ctx)); // Recurse for nested arrays
+  } 
+
+  if (isObject) {
+    // Handle objects by recursively processing each property
+    for (const key in arg) {
+      arg[key] = processArgument(arg[key], api, ctx);
+    }
+    return arg;
+  }
+
+  // Return primitive values as-is
+  return arg;
 }
 
 /**

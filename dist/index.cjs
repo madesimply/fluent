@@ -127,28 +127,27 @@ function bindConfigToApi(api, ctx) {
 function initChain(chain, api, ctx) {
   return chain.map((call) => {
     if (call.args) {
-      call.args = call.args.map((arg) => {
-        const isArray = Array.isArray(arg);
-        const isObject = !isArray && typeof arg === "object" && arg !== null;
-        if (isArray && arg.every((a) => a.method)) {
-          return fluent({ api, chain: arg, ctx });
-        } else if (isObject) {
-          for (const key in arg) {
-            const isKeyArray = Array.isArray(arg[key]);
-            const isKeyChain = isKeyArray && arg[key].every((a) => a.method);
-            if (isKeyChain) {
-              arg[key] = fluent({ api, chain: arg[key], ctx });
-            } else if (typeof arg[key] === "object" && arg[key] !== null) {
-              arg[key] = initChain([arg[key]], api, ctx)[0];
-            }
-          }
-          return arg;
-        }
-        return arg;
-      });
+      call.args = call.args.map((arg) => processArgument(arg, api, ctx));
     }
     return call;
   });
+}
+function processArgument(arg, api, ctx) {
+  const isArray = Array.isArray(arg);
+  const isObject = !isArray && typeof arg === "object" && arg !== null;
+  if (isArray) {
+    if (arg.every((a) => "method" in a)) {
+      return fluent({ api, chain: arg, ctx });
+    }
+    return arg.map((item) => processArgument(item, api, ctx));
+  }
+  if (isObject) {
+    for (const key in arg) {
+      arg[key] = processArgument(arg[key], api, ctx);
+    }
+    return arg;
+  }
+  return arg;
 }
 function fluent({
   api,
