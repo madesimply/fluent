@@ -26,6 +26,14 @@ type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
 type RequiredContext<T> = UnionToIntersection<UnionThisTypes<T>> extends never ? never : UnionToIntersection<UnionThisTypes<T>>;
 
 /**
+ * Traverses the chain and its arguments. If an argument is a serialized chain, it will return the fluent interface for that chain.
+ * @param {ApiCall[]} chain - The chain to traverse.
+ * @param {T} api - The API object containing methods and properties.
+ * @param {RequiredContext<T>} ctx - The context object required by the API methods.
+ * @returns {ApiCall[]} - The chain with serialized chains converted into fluent interfaces.
+ */
+declare function initChain<T extends Record<string, any>>(chain: ApiCall[], api: T, ctx: RequiredContext<T>): ApiCall[];
+/**
  * Creates a fluent interface for the given API, allowing for method chaining and context management.
  * @param {Object} params - The parameters for creating the fluent interface.
  * @param {T} params.api - The API object containing methods and properties.
@@ -39,4 +47,4 @@ declare function fluent<T extends Record<string, any>>({ api, chain, ctx }: {
     ctx: RequiredContext<T>;
 }): Fluent<T>;
 
-export { type ApiCall, type Ctx, type ExtractThisType, type Fluent, type RequiredContext, type UnionThisTypes, type UnionToIntersection, fluent };
+export { type ApiCall, type Ctx, type ExtractThisType, type Fluent, type RequiredContext, type UnionThisTypes, type UnionToIntersection, fluent, initChain };

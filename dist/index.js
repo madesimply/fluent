@@ -98,6 +98,19 @@ function bindConfigToApi(api, ctx) {
   }
   return boundApi;
 }
+function initChain(chain, api, ctx) {
+  return chain.map((call) => {
+    if (call.args) {
+      call.args = call.args.map((arg) => {
+        if (Array.isArray(arg) && arg.every((item) => "method" in item)) {
+          return fluent({ api, chain: arg, ctx });
+        }
+        return arg;
+      });
+    }
+    return call;
+  });
+}
 function fluent({
   api,
   chain = [],
@@ -105,9 +118,11 @@ function fluent({
 }) {
   const path = chain.length ? chain.slice(-1)[0].method.split(".").slice(0, -1) : [];
   const boundApi = bindConfigToApi(api, ctx || {});
-  return createProxy(boundApi, chain, path, ctx || {});
+  const parsedChain = chain ? initChain(chain, api, ctx) : [];
+  return createProxy(boundApi, parsedChain, path, ctx || {});
 }
 export {
-  fluent
+  fluent,
+  initChain
 };
 //# sourceMappingURL=index.js.map

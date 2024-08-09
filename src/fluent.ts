@@ -152,6 +152,29 @@ function bindConfigToApi<T extends Record<string, any>>(api: T, ctx: Ctx): T {
 }
 
 /**
+ * Traverses the chain and its arguments. If an argument is a serialized chain, it will return the fluent interface for that chain.
+ * @param {ApiCall[]} chain - The chain to traverse.
+ * @param {T} api - The API object containing methods and properties.
+ * @param {RequiredContext<T>} ctx - The context object required by the API methods.
+ * @returns {ApiCall[]} - The chain with serialized chains converted into fluent interfaces.
+ */
+export function initChain<T extends Record<string, any>>(chain: ApiCall[], api: T, ctx: RequiredContext<T>): ApiCall[] {
+  return chain.map(call => {
+    // Traverse each argument in the current call
+    if (call.args) {
+      call.args = call.args.map(arg => {
+        // If an argument is itself a serialized chain (array of ApiCall), recursively unserialize it into a fluent interface
+        if (Array.isArray(arg) && arg.every(item => 'method' in item)) {
+          return fluent({ api, chain: arg, ctx });
+        }
+        return arg;
+      });
+    }
+    return call;
+  });
+}
+
+/**
  * Creates a fluent interface for the given API, allowing for method chaining and context management.
  * @param {Object} params - The parameters for creating the fluent interface.
  * @param {T} params.api - The API object containing methods and properties.
@@ -170,5 +193,6 @@ export function fluent<T extends Record<string, any>>({
 }): Fluent<T> {
   const path = chain.length ? chain.slice(-1)[0].method.split('.').slice(0,-1) : [];
   const boundApi = bindConfigToApi(api, ctx || {});
-  return createProxy(boundApi, chain, path, ctx || {}) as Fluent<T>;
+  const parsedChain = chain ? initChain(chain, api, ctx) : [];
+  return createProxy(boundApi, parsedChain, path, ctx || {}) as Fluent<T>;
 }

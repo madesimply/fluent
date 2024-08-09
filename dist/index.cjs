@@ -19,7 +19,8 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/index.ts
 var src_exports = {};
 __export(src_exports, {
-  fluent: () => fluent
+  fluent: () => fluent,
+  initChain: () => initChain
 });
 module.exports = __toCommonJS(src_exports);
 
@@ -123,6 +124,19 @@ function bindConfigToApi(api, ctx) {
   }
   return boundApi;
 }
+function initChain(chain, api, ctx) {
+  return chain.map((call) => {
+    if (call.args) {
+      call.args = call.args.map((arg) => {
+        if (Array.isArray(arg) && arg.every((item) => "method" in item)) {
+          return fluent({ api, chain: arg, ctx });
+        }
+        return arg;
+      });
+    }
+    return call;
+  });
+}
 function fluent({
   api,
   chain = [],
@@ -130,10 +144,12 @@ function fluent({
 }) {
   const path = chain.length ? chain.slice(-1)[0].method.split(".").slice(0, -1) : [];
   const boundApi = bindConfigToApi(api, ctx || {});
-  return createProxy(boundApi, chain, path, ctx || {});
+  const parsedChain = chain ? initChain(chain, api, ctx) : [];
+  return createProxy(boundApi, parsedChain, path, ctx || {});
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  fluent
+  fluent,
+  initChain
 });
 //# sourceMappingURL=index.cjs.map
