@@ -57,13 +57,13 @@ function callIndex(calls: ApiCall[], call: ApiCall, current: number) {
  * @param {T} api - The API object containing methods and properties.
  * @param {ApiCall[]} [parentCalls=[]] - The list of previous API calls.
  * @param {string[]} [path=[]] - The current path of method calls.
- * @param {Ctx} config - The context configuration object.
+ * @param {Ctx} ctx - The context configuration object.
  * @returns {any} - A proxy object that supports method chaining.
  */
-function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall[] = [], path: string[] = [], config: Ctx): any {
+function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall[] = [], path: string[] = [], ctx: Ctx): any {
   const calls = [...parentCalls];
 
-  const run = (ctx: any, from = 0) => {
+  const run = (data: any, from = 0) => {
     let goto = -1;
     for (let i = from; i < calls.length; i++) {
       let call = calls[i];
@@ -71,18 +71,22 @@ function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall
         const index = callIndex(calls, call.goto.args[0], i);
         if (index > -1) goto = index;
       }
-      const result = runMethod(api, ctx, call);
+      const result = runMethod(api, data, call);
       if (result instanceof Promise) {
         const remaining = calls.slice(calls.indexOf(call) + 1);
-        return runPromises(api, ctx, result, remaining);
+        return runPromises(api, data, result, remaining);
       }
-      ctx = result;
+      data = result;
       if (goto > -1) continue;
     }
     if (goto > -1) {
-      setTimeout(() => run(ctx, goto), 0);
+      if (ctx.blocking) {
+        return run(data, goto);
+      } {
+        setTimeout(() => run(data, goto), 0);
+      }
     }
-    return ctx;
+    return data;
   };
 
   const handler: ProxyHandler<any> = {
@@ -96,7 +100,7 @@ function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall
             args: JSON.parse(JSON.stringify(call)),
           };
           calls[calls.length - 1].goto = goto;
-          return createProxy(api, [...calls], path, config);
+          return createProxy(api, [...calls], path, ctx);
         };
 
       if (typeof prop !== "string") return undefined;
@@ -107,16 +111,16 @@ function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall
       const targetValue = newPath.reduce((acc, key) => acc[key], api);
 
       if (typeof targetValue === "object" && targetValue !== null) {
-        return createProxy(api, calls, newPath, config);
+        return createProxy(api, calls, newPath, ctx);
       }
 
       if (typeof targetValue === "function") {
         const func = targetValue as Function;
         if (func.length <= 1) {
-          return createProxy(api, [...calls, { method: fullPath }], path, config);
+          return createProxy(api, [...calls, { method: fullPath }], path, ctx);
         }
         return (...args: any[]) => {
-          return createProxy(api, [...calls, { method: fullPath, args }], path, config);
+          return createProxy(api, [...calls, { method: fullPath, args }], path, ctx);
         };
       }
 
