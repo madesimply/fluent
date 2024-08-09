@@ -15,7 +15,7 @@ type Fluent<T> = {
         (): Fluent<T>;
     } : T[K] extends object ? Fluent<T[K]> : never;
 } & {
-    run: (ctx?: any) => any;
+    run: (args?: any) => any;
     goto: (call: Fluent<T>) => Fluent<T>;
 };
 type ExtractThisType<T> = T extends (this: infer U, ...args: any[]) => any ? U : never;
