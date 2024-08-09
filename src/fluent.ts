@@ -159,24 +159,34 @@ function bindConfigToApi<T extends Record<string, any>>(api: T, ctx: Ctx): T {
  * @param {RequiredContext<T>} ctx - The context object required by the API methods.
  * @returns {ApiCall[]} - The chain with serialized chains and nested structures converted into their appropriate forms.
  */
+
 export function initChain<T extends Record<string, any>>(chain: ApiCall[], api: T, ctx: RequiredContext<T>): ApiCall[] {
   return chain.map(call => {
     if (call.args) {
       call.args = call.args.map(arg => {
-        // If an argument is itself a serialized chain (array of ApiCall), recursively unserialize it into a fluent interface
-        if (Array.isArray(arg)) {
-          // If the array is an array of ApiCall (i.e., a chain), convert it to a fluent interface
-          if (arg.every(item => 'method' in item)) {
-            return fluent({ api, chain: arg, ctx });
+        const isArray = Array.isArray(arg);
+        const isObject = !isArray && typeof arg === 'object' && arg !== null;
+        
+        // Check if the array is a serialized chain (i.e., an array of ApiCall objects)
+        if (isArray && arg.every(a => a.method)) {
+          return fluent({ api, chain: arg, ctx });
+        } 
+        
+        // Recursively process objects
+        else if (isObject) {
+          for (const key in arg) {
+            const isKeyArray = Array.isArray(arg[key]);
+            const isKeyChain = isKeyArray && arg[key].every((a: any) => a.method);
+            if (isKeyChain) {
+              arg[key] = fluent({ api, chain: arg[key], ctx });
+            } else if (typeof arg[key] === 'object' && arg[key] !== null) {
+              arg[key] = initChain([arg[key]], api, ctx)[0];
+            }
           }
-          // Otherwise, recursively process each element in the array
-          return initChain(arg as ApiCall[], api, ctx);
-        }
-        // If the argument is an object (not a chain), recurse into it
-        if (typeof arg === 'object' && arg !== null) {
-          return initChain(Object.values(arg) as ApiCall[], api, ctx);
-        }
-        // For primitive values, just return the value
+          return arg;
+        } 
+        
+        // Return primitive or non-chain values as-is
         return arg;
       });
     }
