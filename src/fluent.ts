@@ -241,66 +241,77 @@ function stringToChain<T extends Record<string, any>>(
   chainString: string,
   api: T
 ): ApiCall[] {
-  const regex = /(\w+)(?:\(([^)]*)\))?/g;
   const calls: ApiCall[] = [];
-  let namespace: T = api;
   let currentPath: string[] = [];
+  let currentArgs: string[] = [];
+  let inArg = false;
+  let currentMethod = '';
 
-  while (true) {
-    const match = regex.exec(chainString);
-    if (!match) break;
+  // Helper function to validate if a method exists in the current namespace of the API
+  function methodExists(method: string, currentApi: any): boolean {
+    return method in currentApi;
+  }
 
-    const [, part, args] = match;
+  for (let i = 0; i < chainString.length; i++) {
+    const char = chainString[i];
 
-    if (!namespace[part] && api[part]) {
-      namespace = api;
+    if (char === '.' && !inArg) {
+      if (currentMethod && methodExists(currentMethod, api)) {
+        calls.push({ method: currentPath.join('.') + '.' + currentMethod, args: currentArgs.length ? parseArgs(currentArgs, api) : [] });
+        currentMethod = '';
+        currentArgs = [];
+      }
       currentPath = [];
+    } else if (char === '(') {
+      inArg = true;
+      if (currentMethod) {
+        currentArgs.push('');
+      }
+    } else if (char === ')') {
+      inArg = false;
+    } else if (char === ',' && !inArg) {
+      if (currentMethod) {
+        currentArgs.push('');
+      }
+    } else {
+      if (char === ' ') {
+        continue;
+      }
+
+      if (inArg) {
+        if (currentArgs.length > 0) {
+          currentArgs[currentArgs.length - 1] += char;
+        } else {
+          currentArgs.push(char);
+        }
+      } else {
+        if (currentMethod === '') {
+          currentMethod += char;
+        } else if (currentPath.length > 0 || currentMethod) {
+          currentPath.push(char);
+        }
+      }
     }
+  }
 
-    if (typeof namespace[part] === "function") {
-      const methodName = currentPath.length
-        ? `${currentPath.join(".")}.${part}`
-        : part;
-
-      console.log(args);
-
-      // Parse the arguments, checking if they're chains
-      const parsedArgs = args
-        ? args.split(",").map((arg) => parseArgument(arg.trim(), api))
-        : [];
-
-      console.log(parsedArgs);
-      
-      calls.push({
-        method: methodName,
-        args: parsedArgs,
-      });
-    } else if (typeof namespace[part] === "object") {
-      namespace = namespace[part];
-      currentPath.push(part);
-    }
-
-    if (!chainString.slice(regex.lastIndex).trim().startsWith(".")) {
-      namespace = api;
-      currentPath = [];
-    }
+  if (currentMethod && methodExists(currentMethod, api)) {
+    calls.push({ method: currentPath.join('.') + '.' + currentMethod, args: currentArgs.length ? parseArgs(currentArgs, api) : [] });
   }
 
   return calls;
 }
 
-function parseArgument<T extends Record<string, any>>(
-  arg: string,
-  api: T
-): any {
-  // Check if the argument is a chain (not wrapped in quotes)
-  const isChain = !/^['"].*['"]$/.test(arg);
-  if (isChain) {
-    return stringToChain(arg, api);
-  }
+function parseArgs<T extends Record<string, any>>(args: string[], api: T): any[] {
+  return args.map(arg => {
+    // Remove outer quotes if present
+    arg = arg.replace(/^['"]|['"]$/g, '');
 
-  // Otherwise, return the argument as a literal value
-  return arg;
+    // Check if argument is a nested chain
+    if (/^\w+\(/.test(arg)) {
+      return stringToChain(arg, api); // Pass appropriate api if needed
+    }
+    return arg; // Return as is if not a nested chain
+  });
 }
 
 /**
