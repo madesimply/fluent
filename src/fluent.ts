@@ -2,10 +2,10 @@ import { ApiCall, Ctx, Fluent, RequiredContext, StringChain } from "./types";
 
 /**
  * Executes a method from the API with the provided context and arguments.
- * @param {Record<string, any>} api - The API object containing the methods.
- * @param {any} ctx - The context object passed to the method.
- * @param {ApiCall} call - An object containing the method name and arguments.
- * @returns {any} - The result of the method execution.
+ * @param api - The API object containing the methods.
+ * @param ctx - The context object passed to the method.
+ * @param call - An object containing the method name and arguments.
+ * @returns The result of the method execution.
  */
 function runMethod(api: Record<string, any>, ctx: any, call: ApiCall) {
   const { method, args } = call;
@@ -15,11 +15,11 @@ function runMethod(api: Record<string, any>, ctx: any, call: ApiCall) {
 
 /**
  * Executes a sequence of API calls, handling promises for asynchronous operations.
- * @param {Record<string, any>} api - The API object containing the methods.
- * @param {any} data - The initial context object.
- * @param {Promise<any>} firstResult - The result of the first API call.
- * @param {ApiCall[]} calls - An array of subsequent API calls to execute.
- * @returns {Promise<any>} - A promise that resolves to the final context after all calls are executed.
+ * @param api - The API object containing the methods.
+ * @param data - The initial context object.
+ * @param firstResult - The result of the first API call.
+ * @param calls - An array of subsequent API calls to execute.
+ * @returns A promise that resolves to the final context after all calls are executed.
  */
 async function runPromises(
   api: Record<string, any>,
@@ -41,10 +41,10 @@ async function runPromises(
 
 /**
  * Finds the index of the next API call in the chain that matches the specified call.
- * @param {ApiCall[]} calls - The list of API calls.
- * @param {ApiCall} call - The API call to find in the list.
- * @param {number} current - The current index in the list of API calls.
- * @returns {number} - The index of the matching call, or -1 if not found.
+ * @param calls - The list of API calls.
+ * @param call - The API call to find in the list.
+ * @param current - The current index in the list of API calls.
+ * @returns The index of the matching call, or -1 if not found.
  */
 function callIndex(calls: ApiCall[], call: ApiCall, current: number) {
   const remaining = calls.slice(current + 1);
@@ -62,16 +62,16 @@ function callIndex(calls: ApiCall[], call: ApiCall, current: number) {
 
 /**
  * Creates a proxy object that allows fluent method chaining for the given API.
- * @param {T} api - The API object containing methods and properties.
- * @param {ApiCall[]} [parentCalls=[]] - The list of previous API calls.
- * @param {string[]} [path=[]] - The current path of method calls.
- * @param {Ctx} ctx - The context configuration object.
- * @returns {any} - A proxy object that supports method chaining.
+ * @param api - The API object containing methods and properties.
+ * @param parentCalls - The list of previous API calls.
+ * @param path - The current path of method calls.
+ * @param ctx - The context configuration object.
+ * @returns A proxy object that supports method chaining.
  */
 function createProxy<T extends Record<string, any>>(
   api: T,
-  parentCalls: ApiCall[] = [],
-  path: string[] = [],
+  parentCalls: ApiCall[],
+  path: string[],
   ctx: Ctx
 ): any {
   const calls = [...parentCalls];
@@ -153,9 +153,9 @@ function createProxy<T extends Record<string, any>>(
 
 /**
  * Binds a context object to all functions within an API, allowing them to use the context as `this`.
- * @param {T} api - The API object containing methods and properties.
- * @param {Ctx} ctx - The context object to bind to the API functions.
- * @returns {T} - The API object with context-bound functions.
+ * @param api - The API object containing methods and properties.
+ * @param ctx - The context object to bind to the API functions.
+ * @returns The API object with context-bound functions.
  */
 function bindConfigToApi<T extends Record<string, any>>(api: T, ctx: Ctx): T {
   const boundApi = {} as T;
@@ -178,10 +178,10 @@ function bindConfigToApi<T extends Record<string, any>>(api: T, ctx: Ctx): T {
 /**
  * Traverses the chain and its arguments. Recursively processes each element, converting serialized chains back into fluent interfaces,
  * and handling primitives, objects, and nested structures as needed.
- * @param {ApiCall[]} chain - The chain to traverse.
- * @param {T} api - The API object containing methods and properties.
- * @param {RequiredContext<T>} ctx - The context object required by the API methods.
- * @returns {ApiCall[]} - The chain with serialized chains and nested structures converted into their appropriate forms.
+ * @param chain - The chain to traverse.
+ * @param api - The API object containing methods and properties.
+ * @param ctx - The context object required by the API methods.
+ * @returns The chain with serialized chains and nested structures converted into their appropriate forms.
  */
 export function initChain<T extends Record<string, any>>(
   chain: ApiCall[],
@@ -198,10 +198,10 @@ export function initChain<T extends Record<string, any>>(
 
 /**
  * Processes individual arguments within an API call, handling arrays, objects, and primitives.
- * @param {any} arg - The argument to process.
- * @param {T} api - The API object containing methods and properties.
- * @param {RequiredContext<T>} ctx - The context object required by the API methods.
- * @returns {any} - The processed argument, potentially converted back into a fluent interface.
+ * @param arg - The argument to process.
+ * @param api - The API object containing methods and properties.
+ * @param ctx - The context object required by the API methods.
+ * @returns The processed argument, potentially converted back into a fluent interface.
  */
 function processArgument<T extends Record<string, any>>(
   arg: any,
@@ -233,9 +233,9 @@ function processArgument<T extends Record<string, any>>(
 
 /**
  * Parses a method chaining string into an array of API calls.
- * @param {string} chainString - The string representing the method chain.
- * @param {T} api - The API object containing methods and properties.
- * @returns {ApiCall[]} - An array of API calls parsed from the string.
+ * @param chainString - The string representing the method chain.
+ * @param api - The API object containing methods and properties.
+ * @returns An array of API calls parsed from the string.
  */
 function stringToChain<T extends Record<string, any>>(
   chainString: string,
@@ -281,8 +281,8 @@ function stringToChain<T extends Record<string, any>>(
 
 /**
  * Converts an array of API calls back into a method chaining string.
- * @param {ApiCall[]} calls - An array of API calls.
- * @returns {string} - The method chaining string.
+ * @param calls - An array of API calls.
+ * @returns The method chaining string.
  */
 function chainToString(calls: ApiCall[]): string {
   return calls
@@ -295,11 +295,11 @@ function chainToString(calls: ApiCall[]): string {
 
 /**
  * Creates a fluent interface for the given API, allowing for method chaining and context management.
- * @param {Object} params - The parameters for creating the fluent interface.
- * @param {T} params.api - The API object containing methods and properties.
- * @param {ApiCall[]} [params.chain=[]] - The initial chain of API calls.
- * @param {RequiredContext<T>} params.ctx - The context object required by the API methods.
- * @returns {Fluent<T>} - A fluent interface for the given API.
+ * @param params - The parameters for creating the fluent interface.
+ * @param params.api - The API object containing methods and properties.
+ * @param params.chain - The initial chain of API calls.
+ * @param params.ctx - The context object required by the API methods.
+ * @returns A fluent interface for the given API.
  */
 export function fluent<T extends Record<string, any>>({
   api,

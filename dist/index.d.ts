@@ -30,19 +30,19 @@ type StringChain = `${string}` | `${string}(${string})`;
 /**
  * Traverses the chain and its arguments. Recursively processes each element, converting serialized chains back into fluent interfaces,
  * and handling primitives, objects, and nested structures as needed.
- * @param {ApiCall[]} chain - The chain to traverse.
- * @param {T} api - The API object containing methods and properties.
- * @param {RequiredContext<T>} ctx - The context object required by the API methods.
- * @returns {ApiCall[]} - The chain with serialized chains and nested structures converted into their appropriate forms.
+ * @param chain - The chain to traverse.
+ * @param api - The API object containing methods and properties.
+ * @param ctx - The context object required by the API methods.
+ * @returns The chain with serialized chains and nested structures converted into their appropriate forms.
  */
 declare function initChain<T extends Record<string, any>>(chain: ApiCall[], api: T, ctx: RequiredContext<T>): ApiCall[];
 /**
  * Creates a fluent interface for the given API, allowing for method chaining and context management.
- * @param {Object} params - The parameters for creating the fluent interface.
- * @param {T} params.api - The API object containing methods and properties.
- * @param {ApiCall[]} [params.chain=[]] - The initial chain of API calls.
- * @param {RequiredContext<T>} params.ctx - The context object required by the API methods.
- * @returns {Fluent<T>} - A fluent interface for the given API.
+ * @param params - The parameters for creating the fluent interface.
+ * @param params.api - The API object containing methods and properties.
+ * @param params.chain - The initial chain of API calls.
+ * @param params.ctx - The context object required by the API methods.
+ * @returns A fluent interface for the given API.
  */
 declare function fluent<T extends Record<string, any>>({ api, chain, ctx, }: {
     api: T;
