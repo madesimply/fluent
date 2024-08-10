@@ -167,13 +167,21 @@ function processArgument(arg, api, ctx) {
 function stringToChain(chain, api) {
   const [method, ...rest] = chain.split("(");
   const rawArgs = rest.join("(").replace(/\)$/, "").split(",");
-  const args = rawArgs.map((arg) => {
-    const path = arg.split("(")[0].trim().split(".");
-    const exists = path.reduce((acc, key) => acc && acc[key], api);
-    if (exists) {
-      return stringToChain(arg.trim(), api);
+  const args = rawArgs.map((_arg) => {
+    const arg = _arg.trim();
+    try {
+      return JSON.parse(arg);
+    } catch (e) {
     }
-    return arg.trim();
+    const path = arg.split("(")[0].trim().split(".").filter((b) => b.length);
+    for (let i = 0; i < path.length; i++) {
+      const currentPath = path.slice(i);
+      const exists = currentPath.reduce((acc, key) => acc && acc[key], api);
+      if (exists) {
+        return stringToChain(arg, api);
+      }
+    }
+    return arg;
   });
   return [{ method, args }];
 }

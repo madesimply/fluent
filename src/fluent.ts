@@ -239,19 +239,34 @@ function processArgument<T extends Record<string, any>>(
  */
 function stringToChain<T extends Record<string, any>>(chain: string, api: T): ApiCall[] {
   const [method, ...rest] = chain.split('(');
-  const rawArgs: string[] = rest.join('(').replace(/\)$/, '').split(',');
+  const rawArgs = rest.join('(').replace(/\)$/, '').split(',');
 
-  const args: (string | ApiCall[])[] = rawArgs.map((arg) => {
-    const path = arg.split('(')[0].trim().split('.');
-    const exists = path.reduce((acc, key) => acc && acc[key], api);
-    if (exists) {
-      return stringToChain(arg.trim(), api);
+  const args: (string | number | ApiCall[])[] = rawArgs.map((_arg) => {
+    const arg = _arg.trim();
+
+    // Try to parse the argument as JSON, if possible
+    try {
+      return JSON.parse(arg);
+    } catch (e) {
+      // Ignore JSON parsing errors and continue with the string argument
     }
-    return arg.trim();
+
+    // Check if the argument is a chain of methods by splitting and checking against the API
+    const path = arg.split('(')[0].trim().split('.').filter(b => b.length);
+    for (let i = 0; i < path.length; i++) {
+      const currentPath = path.slice(i);
+      const exists = currentPath.reduce((acc, key) => acc && acc[key], api);
+      if (exists) {
+        return stringToChain(arg, api);
+      }
+    }
+
+    return arg;
   });
 
   return [{ method, args }];
 }
+
 /**
  * Converts an array of API calls back into a method chaining string.
  * @param calls - An array of API calls.
