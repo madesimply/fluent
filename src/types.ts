@@ -44,6 +44,9 @@ export type Fluent<T> = {
   
   // Allows jumping to a different call in the fluent chain
   goto: (call: Fluent<T>) => Fluent<T>; 
+
+  // Returns the current API chain as a string
+  toString: () => string;
 };
 
 // Extracts the `this` type from a function, or returns `never` if the input is not a function.
@@ -73,3 +76,6 @@ export type UnionToIntersection<U> = (
 export type RequiredContext<T> = UnionToIntersection<UnionThisTypes<T>> extends never
   ? never
   : UnionToIntersection<UnionThisTypes<T>>;
+
+
+export type StringChain = `${string}` | `${string}(${string})`;

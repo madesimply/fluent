@@ -1,4 +1,4 @@
-import { ApiCall, Ctx, Fluent, RequiredContext } from "./types";
+import { ApiCall, Ctx, Fluent, RequiredContext, StringChain } from "./types";
 
 /**
  * Executes a method from the API with the provided context and arguments.
@@ -21,7 +21,12 @@ function runMethod(api: Record<string, any>, ctx: any, call: ApiCall) {
  * @param {ApiCall[]} calls - An array of subsequent API calls to execute.
  * @returns {Promise<any>} - A promise that resolves to the final context after all calls are executed.
  */
-async function runPromises(api: Record<string, any>, data: any, firstResult: Promise<any>, calls: ApiCall[]) {
+async function runPromises(
+  api: Record<string, any>,
+  data: any,
+  firstResult: Promise<any>,
+  calls: ApiCall[]
+) {
   data = await firstResult;
   for (const call of calls) {
     const result = runMethod(api, data, call);
@@ -48,7 +53,9 @@ function callIndex(calls: ApiCall[], call: ApiCall, current: number) {
     return nextIndex;
   }
   const start = calls.slice(0, current + 1);
-  const prevIndex = start.findIndex(({ goto, ...c }) => JSON.stringify(c) === gotoCall);
+  const prevIndex = start.findIndex(
+    ({ goto, ...c }) => JSON.stringify(c) === gotoCall
+  );
   return prevIndex;
 }
 
@@ -60,7 +67,12 @@ function callIndex(calls: ApiCall[], call: ApiCall, current: number) {
  * @param {Ctx} ctx - The context configuration object.
  * @returns {any} - A proxy object that supports method chaining.
  */
-function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall[] = [], path: string[] = [], ctx: Ctx): any {
+function createProxy<T extends Record<string, any>>(
+  api: T,
+  parentCalls: ApiCall[] = [],
+  path: string[] = [],
+  ctx: Ctx
+): any {
   const calls = [...parentCalls];
 
   const run = (data: any, from = 0) => {
@@ -82,7 +94,8 @@ function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall
     if (goto > -1) {
       if (ctx?.fluent?.blocking) {
         return run(data, goto);
-      } {
+      }
+      {
         setTimeout(() => run(data, goto), 0);
       }
     }
@@ -102,6 +115,7 @@ function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall
           calls[calls.length - 1].goto = goto;
           return createProxy(api, [...calls], path, ctx);
         };
+      if (prop === "toString") return () => chainToString(calls);
 
       if (typeof prop !== "string") return undefined;
 
@@ -120,7 +134,12 @@ function createProxy<T extends Record<string, any>>(api: T, parentCalls: ApiCall
           return createProxy(api, [...calls, { method: fullPath }], path, ctx);
         }
         return (...args: any[]) => {
-          return createProxy(api, [...calls, { method: fullPath, args }], path, ctx);
+          return createProxy(
+            api,
+            [...calls, { method: fullPath, args }],
+            path,
+            ctx
+          );
         };
       }
 
@@ -141,10 +160,10 @@ function bindConfigToApi<T extends Record<string, any>>(api: T, ctx: Ctx): T {
   const boundApi = {} as T;
 
   for (const key in api) {
-    if (typeof api[key] === 'function') {
+    if (typeof api[key] === "function") {
       // Bind the configuration to the function
       boundApi[key] = api[key].bind(ctx);
-    } else if (typeof api[key] === 'object' && api[key] !== null) {
+    } else if (typeof api[key] === "object" && api[key] !== null) {
       // Recursively bind the configuration for nested objects
       boundApi[key] = bindConfigToApi(api[key], ctx);
     } else {
@@ -163,10 +182,14 @@ function bindConfigToApi<T extends Record<string, any>>(api: T, ctx: Ctx): T {
  * @param {RequiredContext<T>} ctx - The context object required by the API methods.
  * @returns {ApiCall[]} - The chain with serialized chains and nested structures converted into their appropriate forms.
  */
-export function initChain<T extends Record<string, any>>(chain: ApiCall[], api: T, ctx: RequiredContext<T>): ApiCall[] {
-  return chain.map(call => {
+export function initChain<T extends Record<string, any>>(
+  chain: ApiCall[],
+  api: T,
+  ctx: RequiredContext<T>
+): ApiCall[] {
+  return chain.map((call) => {
     if (call.args) {
-      call.args = call.args.map(arg => processArgument(arg, api, ctx));
+      call.args = call.args.map((arg) => processArgument(arg, api, ctx));
     }
     return call;
   });
@@ -179,17 +202,21 @@ export function initChain<T extends Record<string, any>>(chain: ApiCall[], api: 
  * @param {RequiredContext<T>} ctx - The context object required by the API methods.
  * @returns {any} - The processed argument, potentially converted back into a fluent interface.
  */
-function processArgument<T extends Record<string, any>>(arg: any, api: T, ctx: RequiredContext<T>): any {
+function processArgument<T extends Record<string, any>>(
+  arg: any,
+  api: T,
+  ctx: RequiredContext<T>
+): any {
   const isArray = Array.isArray(arg);
-  const isObject = !isArray && typeof arg === 'object' && arg !== null;
+  const isObject = !isArray && typeof arg === "object" && arg !== null;
 
   if (isArray) {
     // Handle arrays that may contain serialized chains or other arrays
-    if (arg.every(a => 'method' in a)) {
+    if (arg.every((a) => "method" in a)) {
       return fluent({ api, chain: arg, ctx });
     }
-    return arg.map(item => processArgument(item, api, ctx)); // Recurse for nested arrays
-  } 
+    return arg.map((item) => processArgument(item, api, ctx)); // Recurse for nested arrays
+  }
 
   if (isObject) {
     // Handle objects by recursively processing each property
@@ -204,6 +231,68 @@ function processArgument<T extends Record<string, any>>(arg: any, api: T, ctx: R
 }
 
 /**
+ * Parses a method chaining string into an array of API calls.
+ * @param {string} chainString - The string representing the method chain.
+ * @param {T} api - The API object containing methods and properties.
+ * @returns {ApiCall[]} - An array of API calls parsed from the string.
+ */
+function stringToChain<T extends Record<string, any>>(
+  chainString: string,
+  api: T
+): ApiCall[] {
+  const regex = /(\w+)(?:\(([^)]*)\))?/g;
+  const calls: ApiCall[] = [];
+  let namespace: T = api;
+  let currentPath: string[] = [];
+
+  while (true) {
+    const match = regex.exec(chainString);
+    if (!match) break;
+
+    const [, part, args] = match;
+
+    if (!namespace[part] && api[part]) {
+      namespace = api;
+      currentPath = [];
+    }
+
+    if (typeof namespace[part] === "function") {
+      const methodName = currentPath.length
+        ? `${currentPath.join(".")}.${part}`
+        : part;
+      calls.push({
+        method: methodName,
+        args: args ? args.split(",").map((arg) => arg.trim()) : [],
+      });
+    } else if (typeof namespace[part] === "object") {
+      namespace = namespace[part];
+      currentPath.push(part);
+    }
+
+    if (!chainString.slice(regex.lastIndex).trim().startsWith(".")) {
+      namespace = api;
+      currentPath = [];
+    }
+  }
+
+  return calls;
+}
+
+/**
+ * Converts an array of API calls back into a method chaining string.
+ * @param {ApiCall[]} calls - An array of API calls.
+ * @returns {string} - The method chaining string.
+ */
+function chainToString(calls: ApiCall[]): string {
+  return calls
+    .map((call) => {
+      const args = call.args?.length ? `(${call.args.join(", ")})` : "";
+      return `${call.method}${args}`;
+    })
+    .join(".");
+}
+
+/**
  * Creates a fluent interface for the given API, allowing for method chaining and context management.
  * @param {Object} params - The parameters for creating the fluent interface.
  * @param {T} params.api - The API object containing methods and properties.
@@ -212,16 +301,20 @@ function processArgument<T extends Record<string, any>>(arg: any, api: T, ctx: R
  * @returns {Fluent<T>} - A fluent interface for the given API.
  */
 export function fluent<T extends Record<string, any>>({
-  api, 
-  chain = [], 
-  ctx 
-}: { 
-  api: T; 
-  chain?: ApiCall[]; 
+  api,
+  chain = [],
+  ctx,
+}: {
+  api: T;
+  chain?: StringChain | ApiCall[];
   ctx: RequiredContext<T>;
 }): Fluent<T> {
-  const path = chain.length ? chain.slice(-1)[0].method.split('.').slice(0,-1) : [];
   const boundApi = bindConfigToApi(api, ctx || {});
-  const parsedChain = chain ? initChain(chain, api, ctx) : [];
+  const jsonChain =
+    typeof chain === "string" ? stringToChain(chain, boundApi) : chain;
+  const path = jsonChain.length
+    ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1)
+    : [];
+  const parsedChain = chain ? initChain(jsonChain, boundApi, ctx) : [];
   return createProxy(boundApi, parsedChain, path, ctx || {}) as Fluent<T>;
 }

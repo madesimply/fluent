@@ -17,6 +17,7 @@ type Fluent<T> = {
 } & {
     run: (args?: any) => any;
     goto: (call: Fluent<T>) => Fluent<T>;
+    toString: () => string;
 };
 type ExtractThisType<T> = T extends (this: infer U, ...args: any[]) => any ? U : never;
 type UnionThisTypes<T> = T extends object ? {
@@ -24,6 +25,7 @@ type UnionThisTypes<T> = T extends object ? {
 }[keyof T] : never;
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends ((k: infer I) => void) ? I : never;
 type RequiredContext<T> = UnionToIntersection<UnionThisTypes<T>> extends never ? never : UnionToIntersection<UnionThisTypes<T>>;
+type StringChain = `${string}` | `${string}(${string})`;
 
 /**
  * Traverses the chain and its arguments. Recursively processes each element, converting serialized chains back into fluent interfaces,
@@ -42,10 +44,10 @@ declare function initChain<T extends Record<string, any>>(chain: ApiCall[], api:
  * @param {RequiredContext<T>} params.ctx - The context object required by the API methods.
  * @returns {Fluent<T>} - A fluent interface for the given API.
  */
-declare function fluent<T extends Record<string, any>>({ api, chain, ctx }: {
+declare function fluent<T extends Record<string, any>>({ api, chain, ctx, }: {
     api: T;
-    chain?: ApiCall[];
+    chain?: StringChain | ApiCall[];
     ctx: RequiredContext<T>;
 }): Fluent<T>;
 
-export { type ApiCall, type Ctx, type ExtractThisType, type Fluent, type RequiredContext, type UnionThisTypes, type UnionToIntersection, fluent, initChain };
+export { type ApiCall, type Ctx, type ExtractThisType, type Fluent, type RequiredContext, type StringChain, type UnionThisTypes, type UnionToIntersection, fluent, initChain };
