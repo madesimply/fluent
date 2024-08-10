@@ -310,7 +310,7 @@ export function fluent<T extends Record<string, any>>({
   chain?: StringChain | ApiCall[];
   ctx: RequiredContext<T>;
 }): Fluent<T> {
-  const boundApi = bindConfigToApi(api, ctx || {});
+  const boundApi = ctx ? bindConfigToApi(api, ctx || {}) : api;
   const jsonChain =
     typeof chain === "string" ? stringToChain(chain, boundApi) : chain;
   const path = jsonChain.length
