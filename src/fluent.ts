@@ -245,7 +245,6 @@ function stringToChain<T extends Record<string, any>>(
   const calls: ApiCall[] = [];
   let namespace: T = api;
   let currentPath: string[] = [];
-  let lastCallArgs: any[] = [];
 
   while (true) {
     const match = regex.exec(chainString);
@@ -263,30 +262,17 @@ function stringToChain<T extends Record<string, any>>(
         ? `${currentPath.join(".")}.${part}`
         : part;
 
-      // Parse the arguments, handling nested chains
+      // Parse the arguments, checking if they're chains
       const parsedArgs = args
         ? args.split(",").map((arg) => parseArgument(arg.trim(), api))
         : [];
 
-      if (lastCallArgs.length > 0) {
-        // Add the previous call to the current arguments
-        lastCallArgs.push({
-          method: methodName,
-          args: parsedArgs,
-        });
-      } else {
-        calls.push({
-          method: methodName,
-          args: parsedArgs,
-        });
-      }
+      console.log(parsedArgs);
 
-      // Update lastCallArgs if the method has nested calls
-      if (parsedArgs.some(arg => Array.isArray(arg))) {
-        lastCallArgs = [];
-      } else {
-        lastCallArgs = parsedArgs;
-      }
+      calls.push({
+        method: methodName,
+        args: parsedArgs,
+      });
     } else if (typeof namespace[part] === "object") {
       namespace = namespace[part];
       currentPath.push(part);
@@ -295,7 +281,6 @@ function stringToChain<T extends Record<string, any>>(
     if (!chainString.slice(regex.lastIndex).trim().startsWith(".")) {
       namespace = api;
       currentPath = [];
-      lastCallArgs = [];
     }
   }
 
