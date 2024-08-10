@@ -262,12 +262,15 @@ function stringToChain<T extends Record<string, any>>(
         ? `${currentPath.join(".")}.${part}`
         : part;
 
+      console.log(args);
+
       // Parse the arguments, checking if they're chains
       const parsedArgs = args
         ? args.split(",").map((arg) => parseArgument(arg.trim(), api))
         : [];
 
-
+      console.log(parsedArgs);
+      
       calls.push({
         method: methodName,
         args: parsedArgs,
