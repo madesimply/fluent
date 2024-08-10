@@ -1,2 +1,176 @@
-function h(n,e,r){let{method:t,args:o}=r;return t.split(".").reduce((c,u)=>c[u],n)(e,...o||[])}async function x(n,e,r,t){await r,e=r===void 0?e:r;for(let o of t){let i=h(n,e,o);i instanceof Promise&&await i,e=i===void 0?e:i}return e}function b(n,e,r){let t=n.slice(r+1),o=JSON.stringify(e),i=t.findIndex(s=>JSON.stringify(s)===o);return i>-1?i:n.slice(0,r+1).findIndex(({goto:s,...f})=>JSON.stringify(f)===o)}function m(n,e,r,t){let o=[...e],i=(u,s=0)=>{var y;let f=-1;for(let a=s;a<o.length;a++){let l=o[a];if(l.goto&&l.goto.args){let d=b(o,l.goto.args[0],a);d>-1&&(f=d)}let g=h(n,u,l);if(g instanceof Promise){let d=o.slice(o.indexOf(l)+1);return x(n,u,g,d)}u=g===void 0?u:g,f>-1}if(f>-1){if((y=t==null?void 0:t.fluent)!=null&&y.blocking)return i(u,f);setTimeout(()=>i(u,f),0)}return u},c={get(u,s){if(s==="run")return i;if(s==="toJSON")return()=>o;if(s==="goto")return g=>{let d={method:"goto",args:JSON.parse(JSON.stringify(g))};return o[o.length-1].goto=d,m(n,[...o],r,t)};if(s==="toString")return()=>R(o);if(typeof s!="string")return;let y=(s in n?n[s]:void 0)?[s]:[...r,s],a=y.join("."),l=y.reduce((g,d)=>g[d],n);if(typeof l=="object"&&l!==null)return m(n,o,y,t);if(typeof l=="function")return l.length<=1?m(n,[...o,{method:a}],r,t):(...d)=>m(n,[...o,{method:a,args:d}],r,t)}};return new Proxy(()=>{},c)}function T(n,e){let r={};for(let t in n)typeof n[t]=="function"?r[t]=n[t].bind(e):typeof n[t]=="object"&&n[t]!==null?r[t]=T(n[t],e):r[t]=n[t];return r}function p(n,e,r){return n.map(t=>(t.args&&(t.args=t.args.map(o=>C(o,e,r))),t))}function C(n,e,r){let t=Array.isArray(n),o=!t&&typeof n=="object"&&n!==null;if(t)return n.every(i=>"method"in i)?S({api:e,chain:n,ctx:r}):n.map(i=>C(i,e,r));if(o){for(let i in n)n[i]=C(n[i],e,r);return n}return n}function A(n,e){let[r,...t]=n.split("("),i=t.join("(").replace(/\)$/,"").split(",").map(c=>c.split("(")[0].trim().split(".").reduce((f,y)=>f&&f[y],e)?A(c.trim(),e):c.trim());return[{method:r,args:i}]}function R(n){return n.map(e=>{var t;let r=(t=e.args)!=null&&t.length?`(${e.args.join(", ")})`:"";return`${e.method}${r}`}).join(".")}function S({api:n,chain:e=[],ctx:r}){let t=T(n,r||{}),o=typeof e=="string"?A(e,t):e,i=o.length?o.slice(-1)[0].method.split(".").slice(0,-1):[],c=e?p(o,t,r):[];return m(t,c,i,r||{})}export{S as fluent,p as initChain};
+// src/fluent.ts
+function runMethod(api, ctx, call) {
+  const { method, args } = call;
+  const methodFunc = method.split(".").reduce((acc, key) => acc[key], api);
+  return methodFunc(ctx, ...args || []);
+}
+async function runPromises(api, data, firstResult, calls) {
+  await firstResult;
+  data = firstResult === void 0 ? data : firstResult;
+  for (const call of calls) {
+    const result = runMethod(api, data, call);
+    if (result instanceof Promise) {
+      await result;
+    }
+    data = result === void 0 ? data : result;
+  }
+  return data;
+}
+function callIndex(calls, call, current) {
+  const remaining = calls.slice(current + 1);
+  const gotoCall = JSON.stringify(call);
+  const nextIndex = remaining.findIndex((c) => JSON.stringify(c) === gotoCall);
+  if (nextIndex > -1) {
+    return nextIndex;
+  }
+  const start = calls.slice(0, current + 1);
+  const prevIndex = start.findIndex(
+    ({ goto, ...c }) => JSON.stringify(c) === gotoCall
+  );
+  return prevIndex;
+}
+function createProxy(api, parentCalls, path, ctx) {
+  const calls = [...parentCalls];
+  const run = (data, from = 0) => {
+    var _a;
+    let goto = -1;
+    for (let i = from; i < calls.length; i++) {
+      let call = calls[i];
+      if (call.goto && call.goto.args) {
+        const index = callIndex(calls, call.goto.args[0], i);
+        if (index > -1) goto = index;
+      }
+      const result = runMethod(api, data, call);
+      if (result instanceof Promise) {
+        const remaining = calls.slice(calls.indexOf(call) + 1);
+        return runPromises(api, data, result, remaining);
+      }
+      data = result === void 0 ? data : result;
+      if (goto > -1) continue;
+    }
+    if (goto > -1) {
+      if ((_a = ctx == null ? void 0 : ctx.fluent) == null ? void 0 : _a.blocking) {
+        return run(data, goto);
+      }
+      {
+        setTimeout(() => run(data, goto), 0);
+      }
+    }
+    return data;
+  };
+  const handler = {
+    get(_, prop) {
+      if (prop === "run") return run;
+      if (prop === "toJSON") return () => calls;
+      if (prop === "goto")
+        return (call) => {
+          const goto = {
+            method: "goto",
+            args: JSON.parse(JSON.stringify(call))
+          };
+          calls[calls.length - 1].goto = goto;
+          return createProxy(api, [...calls], path, ctx);
+        };
+      if (prop === "toString") return () => chainToString(calls);
+      if (typeof prop !== "string") return void 0;
+      const baseTarget = prop in api ? api[prop] : void 0;
+      const newPath = baseTarget ? [prop] : [...path, prop];
+      const fullPath = newPath.join(".");
+      const targetValue = newPath.reduce((acc, key) => acc[key], api);
+      if (typeof targetValue === "object" && targetValue !== null) {
+        return createProxy(api, calls, newPath, ctx);
+      }
+      if (typeof targetValue === "function") {
+        const func = targetValue;
+        if (func.length <= 1) {
+          return createProxy(api, [...calls, { method: fullPath }], path, ctx);
+        }
+        return (...args) => {
+          return createProxy(
+            api,
+            [...calls, { method: fullPath, args }],
+            path,
+            ctx
+          );
+        };
+      }
+      return void 0;
+    }
+  };
+  return new Proxy(() => {
+  }, handler);
+}
+function bindConfigToApi(api, ctx) {
+  const boundApi = {};
+  for (const key in api) {
+    if (typeof api[key] === "function") {
+      boundApi[key] = api[key].bind(ctx);
+    } else if (typeof api[key] === "object" && api[key] !== null) {
+      boundApi[key] = bindConfigToApi(api[key], ctx);
+    } else {
+      boundApi[key] = api[key];
+    }
+  }
+  return boundApi;
+}
+function initChain(chain, api, ctx) {
+  return chain.map((call) => {
+    if (call.args) {
+      call.args = call.args.map((arg) => processArgument(arg, api, ctx));
+    }
+    return call;
+  });
+}
+function processArgument(arg, api, ctx) {
+  const isArray = Array.isArray(arg);
+  const isObject = !isArray && typeof arg === "object" && arg !== null;
+  if (isArray) {
+    if (arg.every((a) => "method" in a)) {
+      return fluent({ api, chain: arg, ctx });
+    }
+    return arg.map((item) => processArgument(item, api, ctx));
+  }
+  if (isObject) {
+    for (const key in arg) {
+      arg[key] = processArgument(arg[key], api, ctx);
+    }
+    return arg;
+  }
+  return arg;
+}
+function stringToChain(chain, api) {
+  const [method, ...rest] = chain.split("(");
+  const rawArgs = rest.join("(").replace(/\)$/, "").split(",");
+  const args = rawArgs.map((arg) => {
+    const path = arg.split("(")[0].trim().split(".");
+    const exists = path.reduce((acc, key) => acc && acc[key], api);
+    if (exists) {
+      return stringToChain(arg.trim(), api);
+    }
+    return arg.trim();
+  });
+  return [{ method, args }];
+}
+function chainToString(calls) {
+  return calls.map((call) => {
+    var _a;
+    const args = ((_a = call.args) == null ? void 0 : _a.length) ? `(${call.args.join(", ")})` : "";
+    return `${call.method}${args}`;
+  }).join(".");
+}
+function fluent({
+  api,
+  chain = [],
+  ctx
+}) {
+  const boundApi = bindConfigToApi(api, ctx || {});
+  const jsonChain = typeof chain === "string" ? stringToChain(chain, boundApi) : chain;
+  const path = jsonChain.length ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1) : [];
+  const parsedChain = chain ? initChain(jsonChain, boundApi, ctx) : [];
+  return createProxy(boundApi, parsedChain, path, ctx || {});
+}
+export {
+  fluent,
+  initChain
+};
 //# sourceMappingURL=index.js.map
