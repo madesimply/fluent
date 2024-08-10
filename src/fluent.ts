@@ -262,16 +262,9 @@ function stringToChain<T extends Record<string, any>>(
         ? `${currentPath.join(".")}.${part}`
         : part;
 
+      // Parse the arguments, checking if they're chains
       const parsedArgs = args
-        ? args.split(",").map(arg => {
-            const trimmedArg = arg.trim();
-            // Check if the argument is a chain
-            if (trimmedArg.includes(".")) {
-              // Recursively parse the chain argument
-              return stringToChain(trimmedArg, api);
-            }
-            return trimmedArg;
-          })
+        ? args.split(",").map((arg) => parseArgument(arg.trim(), api))
         : [];
 
       calls.push({
@@ -290,6 +283,20 @@ function stringToChain<T extends Record<string, any>>(
   }
 
   return calls;
+}
+
+function parseArgument<T extends Record<string, any>>(
+  arg: string,
+  api: T
+): any {
+  // Check if the argument is a chain (not wrapped in quotes)
+  const isChain = !/^['"].*['"]$/.test(arg);
+  if (isChain) {
+    return stringToChain(arg, api);
+  }
+
+  // Otherwise, return the argument as a literal value
+  return arg;
 }
 
 /**
