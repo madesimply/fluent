@@ -261,9 +261,22 @@ function stringToChain<T extends Record<string, any>>(
       const methodName = currentPath.length
         ? `${currentPath.join(".")}.${part}`
         : part;
+
+      const parsedArgs = args
+        ? args.split(",").map(arg => {
+            const trimmedArg = arg.trim();
+            // Check if the argument is a chain
+            if (trimmedArg.includes(".")) {
+              // Recursively parse the chain argument
+              return stringToChain(trimmedArg, api);
+            }
+            return trimmedArg;
+          })
+        : [];
+
       calls.push({
         method: methodName,
-        args: args ? args.split(",").map((arg) => arg.trim()) : [],
+        args: parsedArgs,
       });
     } else if (typeof namespace[part] === "object") {
       namespace = namespace[part];
