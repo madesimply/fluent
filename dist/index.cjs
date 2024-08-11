@@ -164,26 +164,52 @@ function processArgument(arg, api, ctx) {
   }
   return arg;
 }
-function stringToChain(chain, api) {
-  const [method, ...rest] = chain.split("(");
-  const rawArgs = rest.join("(").replace(/\)$/, "").split(",");
-  const args = rawArgs.map((_arg) => {
-    const arg = _arg.trim();
-    try {
-      return JSON.parse(arg);
-    } catch (e) {
+function getMethodPaths(obj, path = "", paths = []) {
+  for (let key in obj) {
+    if (typeof obj[key] === "function") {
+      paths.push({ path: path + key, arity: obj[key].length });
+    } else if (typeof obj[key] === "object" && obj[key] !== null) {
+      getMethodPaths(obj[key], path + key + ".", paths);
     }
-    const path = arg.split("(")[0].trim().split(".").filter((b) => b.length);
-    for (let i = 0; i < path.length; i++) {
-      const currentPath = path.slice(i);
-      const exists = currentPath.reduce((acc, key) => acc && acc[key], api);
-      if (exists) {
-        return stringToChain(arg, api);
-      }
+  }
+  return paths.sort((a, b) => b.path.length - a.path.length);
+}
+function getMethodRegex(api) {
+  const methodPaths = getMethodPaths(api);
+  methodPaths.sort((a, b) => b.path.length - a.path.length);
+  const methodRegexes = methodPaths.map(({ path, arity }) => {
+    const escapedPath = path.replace(/\./g, "\\.");
+    if (arity === 0) {
+      return `${escapedPath}\\b`;
+    } else {
+      return `${escapedPath}\\((?:[^)(]+|\\((?:[^)(]+|\\([^)(]*\\))*\\))*\\)`;
     }
-    return arg;
   });
-  return [{ method, args }];
+  return new RegExp(`(${methodRegexes.join("|")})`, "g");
+}
+function stringToChain(api, chain, calls = []) {
+  const regex = getMethodRegex(api);
+  if (!regex.test(chain)) return calls;
+  const match = (chain.match(regex) || [])[0];
+  if (!match) return calls;
+  const rest = chain.slice(chain.indexOf(match) + match.length);
+  const method = match.split("(")[0].replace(/^\./, "");
+  const hasArgs = match.includes("(");
+  if (!hasArgs) {
+    calls.push({ method, args: [] });
+    return stringToChain(api, rest, calls);
+  }
+  let args = match.slice(match.indexOf("(") + 1, match.lastIndexOf(")"));
+  if (regex.test(args)) {
+    const matches = [...args.matchAll(getMethodRegex(api))];
+    matches.forEach((innerMatch) => {
+      const result = stringToChain(api, innerMatch[0], calls);
+      args = args.replace(innerMatch[0], JSON.stringify(result));
+    });
+  }
+  args = JSON.parse(`[${args}]`);
+  calls.push({ method, args });
+  return stringToChain(api, rest, calls);
 }
 function chainToString(calls) {
   return calls.map((call) => {
@@ -198,7 +224,7 @@ function fluent({
   ctx
 }) {
   const boundApi = bindConfigToApi(api, ctx || {});
-  const jsonChain = typeof chain === "string" ? stringToChain(chain, boundApi) : chain;
+  const jsonChain = typeof chain === "string" ? stringToChain(boundApi, chain, []) : chain;
   const path = jsonChain.length ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1) : [];
   const parsedChain = chain ? initChain(jsonChain, boundApi, ctx) : [];
   return createProxy(boundApi, parsedChain, path, ctx || {});

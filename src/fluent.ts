@@ -232,40 +232,90 @@ function processArgument<T extends Record<string, any>>(
 }
 
 /**
+ * Recursively traverses an object to find all method paths and their arities.
+ * @param obj - The object to traverse.
+ * @param path - The current path in the object.
+ * @param paths - The list of method paths and their arities.
+ * @returns An array of method paths and their arities.
+ */
+function getMethodPaths(obj: Record<string, any>, path = "", paths: { path: string; arity: number }[] = []) {
+  for (let key in obj) {
+    if (typeof obj[key] === "function") {
+      paths.push({ path: path + key, arity: obj[key].length });
+    } else if (typeof obj[key] === "object" && obj[key] !== null) {
+      getMethodPaths(obj[key], path + key + ".", paths);
+    }
+  }
+  return paths.sort((a, b) => b.path.length - a.path.length);
+}
+
+/**
+ * Generates a regular expression pattern to match method calls in a string.
+ * @param api - The API object containing methods and properties.
+ * @returns A regular expression pattern that matches method calls.
+ */
+function getMethodRegex(api: Record<string, any>): RegExp {
+  const methodPaths = getMethodPaths(api);
+
+  // Sort method paths by length in descending order to prefer longer matches
+  methodPaths.sort((a, b) => b.path.length - a.path.length);
+
+  // Build regex strings for each method path
+  const methodRegexes = methodPaths.map(({ path, arity }) => {
+    const escapedPath = path.replace(/\./g, "\\.");
+    // Handle methods with and without arguments differently
+    if (arity === 0) {
+      return `${escapedPath}\\b`; // Match method names exactly
+    } else {
+      // For methods with arguments, capture nested parentheses
+      return `${escapedPath}\\((?:[^)(]+|\\((?:[^)(]+|\\([^)(]*\\))*\\))*\\)`;
+    }
+  });
+
+  // Combine all method regexes into one large regex pattern
+  return new RegExp(`(${methodRegexes.join("|")})`, "g");
+}
+
+
+/**
  * Parses a method chaining string into an array of API calls.
  * @param chainString - The string representing the method chain.
  * @param api - The API object containing methods and properties.
  * @returns An array of API calls parsed from the string.
  */
-function stringToChain<T extends Record<string, any>>(chain: string, api: T): ApiCall[] {
-  const [method, ...rest] = chain.split('(');
-  const rawArgs = rest.join('(').replace(/\)$/, '').split(',');
-
-  const args: (string | number | ApiCall[])[] = rawArgs.map((_arg) => {
-    const arg = _arg.trim();
-
-    // Try to parse the argument as JSON, if possible
-    try {
-      return JSON.parse(arg);
-    } catch (e) {
-      // Ignore JSON parsing errors and continue with the string argument
+function stringToChain<T extends Record<string, any>>(api: T, chain: string, calls: ApiCall[] = []): ApiCall[] {
+    const regex = getMethodRegex(api);
+  
+    if (!regex.test(chain)) return calls;
+  
+    const match = (chain.match(regex) || [])[0];
+  
+    if (!match) return calls;
+  
+    const rest = chain.slice(chain.indexOf(match) + match.length);
+    const method = match.split("(")[0].replace(/^\./, "");
+  
+    const hasArgs = match.includes("(");
+    if (!hasArgs) {
+      calls.push({ method, args: [] });
+      return stringToChain(api, rest, calls);
     }
-
-    // Check if the argument is a chain of methods by splitting and checking against the API
-    const path = arg.split('(')[0].trim().split('.').filter(b => b.length);
-    for (let i = 0; i < path.length; i++) {
-      const currentPath = path.slice(i);
-      const exists = currentPath.reduce((acc, key) => acc && acc[key], api);
-      if (exists) {
-        return stringToChain(arg, api);
-      }
+  
+    // root(ns.nestArgs("test"), ns.nestArgs("test2"))
+    let args = match.slice(match.indexOf("(") + 1, match.lastIndexOf(")"));
+    if (regex.test(args)) {
+      const matches = [...args.matchAll(getMethodRegex(api))];
+      matches.forEach((innerMatch) => {
+        const result = stringToChain(api, innerMatch[0], calls);
+        args = args.replace(innerMatch[0], JSON.stringify(result));
+      });
     }
-
-    return arg;
-  });
-
-  return [{ method, args }];
-}
+  
+    args = JSON.parse(`[${args}]`);
+    calls.push({ method, args: args as any });
+  
+    return stringToChain(api, rest, calls);
+  }
 
 /**
  * Converts an array of API calls back into a method chaining string.
@@ -300,7 +350,7 @@ export function fluent<T extends Record<string, any>>({
 }): Fluent<T> {
   const boundApi = bindConfigToApi(api, ctx || {});
   const jsonChain =
-    typeof chain === "string" ? stringToChain(chain, boundApi) : chain;
+    typeof chain === "string" ? stringToChain(boundApi, chain, []) : chain;
   const path = jsonChain.length
     ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1)
     : [];
