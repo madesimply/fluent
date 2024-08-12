@@ -106,17 +106,23 @@ export function stringToChain(api: Record<string, any>, str: string): any {
   const mockRoot = fluent({ api: mockApi, ctx: {} });
 
   // Extract arguments and method chain from the input string
-  const args = '(' + str.split('(').slice(1).join('(');  
+  let argsStr = '';
+  const argsArr = str.split("(");
+  if (argsArr.length > 1) {
+    argsStr = "(" + argsArr.slice(1).join("(");
+  } else {
+    argsStr = "";
+  }
   const chain = str.split('(')[0];
   const methods = chain.split('.');
-  methods[methods.length - 1] += args === '(' ? '' : args;
+  methods[methods.length - 1] += argsStr === '(' ? '' : argsStr;
 
   let current: any = mockRoot;
   for (let method of methods) {
     if (method.includes('(')) {
-      const [methodName, args] = method.split('(');
-      const parsedArgs = args.slice(0, -1).split(',').map(arg => arg.trim());
-      current = current[methodName](parsedArgs, mockRoot);
+      const [methodName, ...rest] = method.split("(");
+      const args2 = rest.join("(").slice(0, -1).split(",").map((arg) => arg.trim());
+      current = current[methodName](args2, mockRoot);
     } else {
       current = current[method];
     }
