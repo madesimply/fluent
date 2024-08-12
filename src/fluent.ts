@@ -233,52 +233,6 @@ function processArgument<T extends Record<string, any>>(
 }
 
 /**
- * Recursively traverses an object to find all method paths and their arities.
- * @param obj - The object to traverse.
- * @param path - The current path in the object.
- * @param paths - The list of method paths and their arities.
- * @returns An array of method paths and their arities.
- */
-function getMethodPaths(obj: Record<string, any>, path = "", paths: { path: string; arity: number }[] = []) {
-  for (let key in obj) {
-    if (typeof obj[key] === "function") {
-      paths.push({ path: path + key, arity: obj[key].length });
-    } else if (typeof obj[key] === "object" && obj[key] !== null) {
-      getMethodPaths(obj[key], path + key + ".", paths);
-    }
-  }
-  return paths.sort((a, b) => b.path.length - a.path.length);
-}
-
-/**
- * Generates a regular expression pattern to match method calls in a string.
- * @param api - The API object containing methods and properties.
- * @returns A regular expression pattern that matches method calls.
- */
-function getMethodRegex(api: Record<string, any>): RegExp {
-  const methodPaths = getMethodPaths(api);
-
-  // Sort method paths by length in descending order to prefer longer matches
-  methodPaths.sort((a, b) => b.path.length - a.path.length);
-
-  // Build regex strings for each method path
-  const methodRegexes = methodPaths.map(({ path, arity }) => {
-    const escapedPath = path.replace(/\./g, "\\.");
-    // Handle methods with and without arguments differently
-    if (arity < 2) {
-      return `${escapedPath}\\b`; // Match method names exactly
-    } else {
-      // For methods with arguments, capture nested parentheses
-      return `${escapedPath}\\((?:[^)(]+|\\((?:[^)(]+|\\([^)(]*\\))*\\))*\\)`;
-    }
-  });
-
-  // Combine all method regexes into one large regex pattern
-  return new RegExp(`(${methodRegexes.join("|")})`, "g");
-}
-
-
-/**
  * Creates a fluent interface for the given API, allowing for method chaining and context management.
  * @param params - The parameters for creating the fluent interface.
  * @param params.api - The API object containing methods and properties.
