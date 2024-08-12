@@ -1,5 +1,5 @@
 import { fluent } from "./fluent";
-import { ApiCall } from "./types";
+import { ApiCall, Fluent } from "./types";
 
 /**
  * Converts an array of API calls back into a method chaining string.
@@ -105,29 +105,35 @@ export function stringToChain(api: Record<string, any>, str: string): any {
   const mockApi = buildMockApi(api);
   const mockRoot = fluent({ api: mockApi, ctx: {} });
 
-  // Extract arguments and method chain from the input string
-  let argsStr = '';
-  const argsArr = str.split("(");
-  if (argsArr.length > 1) {
-    argsStr = "(" + argsArr.slice(1).join("(");
-  } else {
-    argsStr = "";
-  }
-  const chain = str.split('(')[0];
-  const methods = chain.split('.');
-  methods[methods.length - 1] += argsStr === '(' ? '' : argsStr;
+  const splitPath = str.split('.');
+  const path: string[] = [];
+  let current: string = '';
 
-  let current: any = mockRoot;
-  for (let method of methods) {
-    if (method.includes('(')) {
-      const [methodName, ...rest] = method.split("(");
-      const args2 = rest.join("(").slice(0, -1).split(",").map((arg) => arg.trim());
-      current = current[methodName](args2, mockRoot);
+  // Parse the method chain string into a list of method calls
+  splitPath.forEach(part => {
+    current += part;
+    const openBrackets = (current.match(/\(/g) || []).length;
+    const closeBrackets = (current.match(/\)/g) || []).length;
+
+    if (openBrackets === closeBrackets) {
+      path.push(current);
+      current = '';
     } else {
-      current = current[method];
+      current += '.';
     }
-  }
+  });
+
+  // Traverse the parsed path on the mockRoot
+  let currentNode: any = mockRoot;
+  path.forEach(part => {
+    // Extract method name and arguments
+    const methodName = part.replace(/\(.*\)/, '');
+    const argsMatch = part.match(/\((.*)\)/);
+    const args = argsMatch ? argsMatch[1] : null;
+    if (args) currentNode = currentNode[methodName](args);
+    else currentNode = currentNode[methodName];
+  });
 
   // Execute the final method in the chain
-  return [current.run()];
+  return [currentNode.run()];
 }

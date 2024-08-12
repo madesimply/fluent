@@ -72,27 +72,29 @@ function buildMockApi(baseApi) {
 function stringToChain(api, str) {
   const mockApi = buildMockApi(api);
   const mockRoot = fluent({ api: mockApi, ctx: {} });
-  let argsStr = "";
-  const argsArr = str.split("(");
-  if (argsArr.length > 1) {
-    argsStr = "(" + argsArr.slice(1).join("(");
-  } else {
-    argsStr = "";
-  }
-  const chain = str.split("(")[0];
-  const methods = chain.split(".");
-  methods[methods.length - 1] += argsStr === "(" ? "" : argsStr;
-  let current = mockRoot;
-  for (let method of methods) {
-    if (method.includes("(")) {
-      const [methodName, ...rest] = method.split("(");
-      const args2 = rest.join("(").slice(0, -1).split(",").map((arg) => arg.trim());
-      current = current[methodName](args2, mockRoot);
+  const splitPath = str.split(".");
+  const path = [];
+  let current = "";
+  splitPath.forEach((part) => {
+    current += part;
+    const openBrackets = (current.match(/\(/g) || []).length;
+    const closeBrackets = (current.match(/\)/g) || []).length;
+    if (openBrackets === closeBrackets) {
+      path.push(current);
+      current = "";
     } else {
-      current = current[method];
+      current += ".";
     }
-  }
-  return [current.run()];
+  });
+  let currentNode = mockRoot;
+  path.forEach((part) => {
+    const methodName = part.replace(/\(.*\)/, "");
+    const argsMatch = part.match(/\((.*)\)/);
+    const args = argsMatch ? argsMatch[1] : null;
+    if (args) currentNode = currentNode[methodName](args);
+    else currentNode = currentNode[methodName];
+  });
+  return [currentNode.run()];
 }
 
 // src/fluent.ts
