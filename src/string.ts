@@ -49,14 +49,12 @@ export function stringToChain(api: Record<string, any>, str: string): any {
     // Extract method name and arguments
     const methodName = part.replace(/\(.*\)/, '');
     const argsMatch = part.match(/\((.*)\)/);
-    const args = argsMatch ? argsMatch[1] : null;
+    let args = argsMatch ? argsMatch[1] : null;
     if (args) {
       try {
-        const parsedArgs = JSON.parse(`[${args}]`);
-        currentNode = currentNode[methodName](...parsedArgs);
-      } catch (e) {
-        currentNode = currentNode[methodName](args);
-      }
+        args = JSON.parse(`[${args}]`);
+      } catch (e) {}
+      currentNode = currentNode[methodName](args);
     }
     if (args) currentNode = currentNode[methodName](args);
     else currentNode = currentNode[methodName];
