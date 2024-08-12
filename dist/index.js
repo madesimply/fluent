@@ -30,7 +30,7 @@ function stringToChain(api, str) {
     if (args) currentNode = currentNode[methodName](args);
     else currentNode = currentNode[methodName];
   });
-  return JSON.parse(JSON.stringify(currentNode.run()));
+  return JSON.parse(JSON.stringify(currentNode));
 }
 
 // src/fluent.ts

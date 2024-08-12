@@ -55,5 +55,5 @@ export function stringToChain(api: Record<string, any>, str: string): any {
   });
 
   // Execute the final method in the chain
-  return JSON.parse(JSON.stringify(currentNode.run()));
+  return JSON.parse(JSON.stringify(currentNode));
 }
