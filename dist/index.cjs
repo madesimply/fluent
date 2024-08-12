@@ -53,6 +53,14 @@ function stringToChain(api, str) {
     const methodName = part.replace(/\(.*\)/, "");
     const argsMatch = part.match(/\((.*)\)/);
     const args = argsMatch ? argsMatch[1] : null;
+    if (args) {
+      try {
+        const parsedArgs = JSON.parse(`[${args}]`);
+        currentNode = currentNode[methodName](...parsedArgs);
+      } catch (e) {
+        currentNode = currentNode[methodName](args);
+      }
+    }
     if (args) currentNode = currentNode[methodName](args);
     else currentNode = currentNode[methodName];
   });
