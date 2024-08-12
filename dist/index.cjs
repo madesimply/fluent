@@ -24,6 +24,70 @@ __export(src_exports, {
 });
 module.exports = __toCommonJS(src_exports);
 
+// src/string.ts
+function chainToString(calls) {
+  return calls.map((call) => {
+    var _a;
+    const args = ((_a = call.args) == null ? void 0 : _a.length) ? `(${call.args.join(", ")})` : "";
+    return `${call.method}${args}`;
+  }).join(".");
+}
+function parseArguments(args, baseApi) {
+  return args.map((arg) => {
+    try {
+      return JSON.parse(arg);
+    } catch {
+      return stringToChain(baseApi, arg);
+    }
+  });
+}
+function createMockMethod(path, baseApi, argLength) {
+  if (argLength === 1) {
+    return function(ctx) {
+      return { method: path, args: [] };
+    };
+  } else {
+    return function(ctx, args = []) {
+      const parsedArgs = parseArguments(args, baseApi);
+      return { method: path, args: parsedArgs };
+    };
+  }
+}
+function traverseApi(api, path = "", baseApi) {
+  const mock = {};
+  for (let key in api) {
+    const currentPath = path ? `${path}.${key}` : key;
+    if (typeof api[key] === "function") {
+      mock[key] = createMockMethod(currentPath, baseApi, api[key].length);
+    } else if (typeof api[key] === "object" && api[key] !== null) {
+      mock[key] = traverseApi(api[key], currentPath, baseApi);
+    }
+  }
+  return mock;
+}
+function buildMockApi(baseApi) {
+  return traverseApi(baseApi, "", baseApi);
+}
+function stringToChain(api, str) {
+  const mockApi = buildMockApi(api);
+  const mockRoot = fluent({ api: mockApi, ctx: {} });
+  const args = "(" + str.split("(").slice(1).join("(");
+  const chain = str.split("(")[0];
+  const methods = chain.split(".");
+  methods[methods.length - 1] += args === "(" ? "" : args;
+  let current = mockRoot;
+  for (let method of methods) {
+    if (method.includes("(")) {
+      const [methodName, args2] = method.split("(");
+      const parsedArgs = args2.slice(0, -1).split(",").map((arg) => arg.trim());
+      current = current[methodName](parsedArgs, mockRoot);
+    } else {
+      current = current[method];
+    }
+  }
+  return current.run();
+}
+
 // src/fluent.ts
 function runMethod(api, ctx, call) {
   const { method, args } = call;
@@ -164,67 +228,13 @@ function processArgument(arg, api, ctx) {
   }
   return arg;
 }
-function getMethodPaths(obj, path = "", paths = []) {
-  for (let key in obj) {
-    if (typeof obj[key] === "function") {
-      paths.push({ path: path + key, arity: obj[key].length });
-    } else if (typeof obj[key] === "object" && obj[key] !== null) {
-      getMethodPaths(obj[key], path + key + ".", paths);
-    }
-  }
-  return paths.sort((a, b) => b.path.length - a.path.length);
-}
-function getMethodRegex(api) {
-  const methodPaths = getMethodPaths(api);
-  methodPaths.sort((a, b) => b.path.length - a.path.length);
-  const methodRegexes = methodPaths.map(({ path, arity }) => {
-    const escapedPath = path.replace(/\./g, "\\.");
-    if (arity === 0) {
-      return `${escapedPath}\\b`;
-    } else {
-      return `${escapedPath}\\((?:[^)(]+|\\((?:[^)(]+|\\([^)(]*\\))*\\))*\\)`;
-    }
-  });
-  return new RegExp(`(${methodRegexes.join("|")})`, "g");
-}
-function stringToChain(api, chain, calls = []) {
-  const regex = getMethodRegex(api);
-  if (!regex.test(chain)) return calls;
-  const match = (chain.match(regex) || [])[0];
-  if (!match) return calls;
-  const rest = chain.slice(chain.indexOf(match) + match.length);
-  const method = match.split("(")[0].replace(/^\./, "");
-  const hasArgs = match.includes("(");
-  if (!hasArgs) {
-    calls.push({ method, args: [] });
-    return stringToChain(api, rest, calls);
-  }
-  let args = match.slice(match.indexOf("(") + 1, match.lastIndexOf(")"));
-  if (regex.test(args)) {
-    const matches = [...args.matchAll(getMethodRegex(api))];
-    matches.forEach((innerMatch) => {
-      const result = stringToChain(api, innerMatch[0], calls);
-      args = args.replace(innerMatch[0], JSON.stringify(result));
-    });
-  }
-  args = JSON.parse(`[${args}]`);
-  calls.push({ method, args });
-  return stringToChain(api, rest, calls);
-}
-function chainToString(calls) {
-  return calls.map((call) => {
-    var _a;
-    const args = ((_a = call.args) == null ? void 0 : _a.length) ? `(${call.args.join(", ")})` : "";
-    return `${call.method}${args}`;
-  }).join(".");
-}
 function fluent({
   api,
   chain = [],
   ctx
 }) {
   const boundApi = bindConfigToApi(api, ctx || {});
-  const jsonChain = typeof chain === "string" ? stringToChain(boundApi, chain, []) : chain;
+  const jsonChain = typeof chain === "string" ? stringToChain(boundApi, chain) : chain;
   const path = jsonChain.length ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1) : [];
   const parsedChain = chain ? initChain(jsonChain, boundApi, ctx) : [];
   return createProxy(boundApi, parsedChain, path, ctx || {});
