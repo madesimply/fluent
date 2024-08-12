@@ -22,7 +22,8 @@ export function chainToString(calls: ApiCall[]): string {
  * @param baseApi - The base API object containing methods and properties.
  * @returns An array of parsed arguments.
  */
-function parseArguments(args: string[], baseApi: Record<string, any>): any[] {
+function parseArguments(args: any[], baseApi: Record<string, any>): any[] {
+  args = Array.isArray(args) ? args : [args];
   return args.map(arg => {
     try {
       // Try to parse as JSON
@@ -45,13 +46,13 @@ function createMockMethod(
   path: string,
   baseApi: Record<string, any>,
   argLength: number
-): (ctx: any, args?: string[]) => { method: string; args: any[] } {
-  if (argLength === 1) {
-    return function (ctx: any): { method: string; args: any[] } {
+): (data: any, args: any[]) => { method: string; args: any[] } {
+  if (argLength < 2) {
+    return function (data: any): { method: string; args: any[] } {
       return { method: path, args: [] };
     };
   } else {
-    return function (ctx: any, args: string[] = []): { method: string; args: any[] } {
+    return function (data: any, args): { method: string; args: any[] } {
       const parsedArgs = parseArguments(args, baseApi);
       return { method: path, args: parsedArgs };
     };

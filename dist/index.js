@@ -7,6 +7,7 @@ function chainToString(calls) {
   }).join(".");
 }
 function parseArguments(args, baseApi) {
+  args = Array.isArray(args) ? args : [args];
   return args.map((arg) => {
     try {
       return JSON.parse(arg);
@@ -16,12 +17,12 @@ function parseArguments(args, baseApi) {
   });
 }
 function createMockMethod(path, baseApi, argLength) {
-  if (argLength === 1) {
-    return function(ctx) {
+  if (argLength < 2) {
+    return function(data) {
       return { method: path, args: [] };
     };
   } else {
-    return function(ctx, args = []) {
+    return function(data, args) {
       const parsedArgs = parseArguments(args, baseApi);
       return { method: path, args: parsedArgs };
     };
