@@ -60,7 +60,7 @@ function stringToChain(api, str) {
       current = current[method];
     }
   }
-  return current.run();
+  return [current.run()];
 }
 
 // src/fluent.ts
