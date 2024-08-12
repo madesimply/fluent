@@ -6,46 +6,8 @@ function chainToString(calls) {
     return `${call.method}${args}`;
   }).join(".");
 }
-function parseArguments(args, baseApi) {
-  args = Array.isArray(args) ? args : [args];
-  return args.map((arg) => {
-    try {
-      return JSON.parse(arg);
-    } catch {
-      return stringToChain(baseApi, arg);
-    }
-  });
-}
-function createMockMethod(path, baseApi, argLength) {
-  if (argLength < 2) {
-    return function(data) {
-      return { method: path, args: [] };
-    };
-  } else {
-    return function(data, args) {
-      const parsedArgs = parseArguments(args, baseApi);
-      return { method: path, args: parsedArgs };
-    };
-  }
-}
-function traverseApi(api, path = "", baseApi) {
-  const mock = {};
-  for (let key in api) {
-    const currentPath = path ? `${path}.${key}` : key;
-    if (typeof api[key] === "function") {
-      mock[key] = createMockMethod(currentPath, baseApi, api[key].length);
-    } else if (typeof api[key] === "object" && api[key] !== null) {
-      mock[key] = traverseApi(api[key], currentPath, baseApi);
-    }
-  }
-  return mock;
-}
-function buildMockApi(baseApi) {
-  return traverseApi(baseApi, "", baseApi);
-}
 function stringToChain(api, str) {
-  const mockApi = buildMockApi(api);
-  const mockRoot = fluent({ api: mockApi, ctx: {} });
+  const mockRoot = fluent({ api, ctx: {} });
   const splitPath = str.split(".");
   const path = [];
   let current = "";
@@ -68,7 +30,7 @@ function stringToChain(api, str) {
     if (args) currentNode = currentNode[methodName](args);
     else currentNode = currentNode[methodName];
   });
-  return [currentNode.run()];
+  return JSON.parse(JSON.stringify(currentNode.run()));
 }
 
 // src/fluent.ts
