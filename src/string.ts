@@ -18,6 +18,7 @@ export function chainToString(calls: ApiCall[]): string {
 /**
  * Executes a method chain on the mock API by parsing the method chain string
  * and invoking the appropriate methods on the mock API.
+ * Important: this does not support nested chains, only flat chains with JSON-serializable arguments.
  * @param api - The base API object containing methods and properties.
  * @param str - The method chain string to execute.
  * @returns The result of executing the method chain on the mock API.
