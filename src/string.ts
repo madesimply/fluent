@@ -2,7 +2,7 @@ import { fluent } from "./fluent";
 import { ApiCall } from "./types";
 
 /**
- * Converts an array of API calls back into a method chaining string.
+ * Converts an array of API calls into a string representation of a method chain.
  * @param calls - An array of API calls.
  * @returns The method chaining string.
  */
@@ -16,27 +16,17 @@ export function chainToString(calls: ApiCall[]): string {
 }
 
 /**
- * Executes a method chain on the mock API by parsing the method chain string
- * and invoking the appropriate methods on the mock API.
- * Important: this does not support nested chains, only flat chains with JSON-serializable arguments.
+ * Converts a string representation of a method chain into an array of API calls. 
  * @param api - The base API object containing methods and properties.
  * @param str - The method chain string to execute.
  * @returns The result of executing the method chain on the mock API.
  */
 export function stringToChain(api: Record<string, any>, chain: string): any {
-  const root = fluent({ api, ctx: {} });
-  const path = chain.split(".");
-
-  let current: any = root;
-  for (const key of path) {
-    let [name, args] = key.split("(");
-    args = args ? args.slice(0, -1) : args;
-    if (args) {
-      current = current[name](args);
-    } else {
-      current = current[name];
-    }
-  }
-
-  return JSON.parse(JSON.stringify(current));
+  const getChain = new Function('api', 'fluent', `
+    const root = fluent({ api });
+    const { ${Object.keys(api).join(',')} } = api;
+    const chain = root.${chain};
+    return JSON.parse(JSON.stringify(chain));
+  `);
+  return getChain(api, fluent);
 }

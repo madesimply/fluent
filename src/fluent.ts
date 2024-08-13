@@ -249,12 +249,9 @@ export function fluent<T extends Record<string, any>>({
   chain?: StringChain | ApiCall[];
   ctx: RequiredContext<T>;
 }): Fluent<T> {
+  const jsonChain = typeof chain === "string" ? stringToChain(api, chain) : chain;
+  const path = jsonChain.length ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1) : [];
   const boundApi = bindConfigToApi(api, ctx || {});
-  const jsonChain =
-    typeof chain === "string" ? stringToChain(boundApi, chain) : chain;
-  const path = jsonChain.length
-    ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1)
-    : [];
   const parsedChain = chain ? initChain(jsonChain, boundApi, ctx) : [];
   return createProxy(boundApi, parsedChain, path, ctx || {}) as Fluent<T>;
 }

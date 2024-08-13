@@ -33,19 +33,13 @@ function chainToString(calls) {
   }).join(".");
 }
 function stringToChain(api, chain) {
-  const root = fluent({ api, ctx: {} });
-  const path = chain.split(".");
-  let current = root;
-  for (const key of path) {
-    let [name, args] = key.split("(");
-    args = args ? args.slice(0, -1) : args;
-    if (args) {
-      current = current[name](args);
-    } else {
-      current = current[name];
-    }
-  }
-  return JSON.parse(JSON.stringify(current));
+  const getChain = new Function("api", "fluent", `
+    const root = fluent({ api });
+    const { ${Object.keys(api).join(",")} } = api;
+    const chain = root.${chain};
+    return JSON.parse(JSON.stringify(chain));
+  `);
+  return getChain(api, fluent);
 }
 
 // src/fluent.ts
@@ -193,9 +187,9 @@ function fluent({
   chain = [],
   ctx
 }) {
-  const boundApi = bindConfigToApi(api, ctx || {});
-  const jsonChain = typeof chain === "string" ? stringToChain(boundApi, chain) : chain;
+  const jsonChain = typeof chain === "string" ? stringToChain(api, chain) : chain;
   const path = jsonChain.length ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1) : [];
+  const boundApi = bindConfigToApi(api, ctx || {});
   const parsedChain = chain ? initChain(jsonChain, boundApi, ctx) : [];
   return createProxy(boundApi, parsedChain, path, ctx || {});
 }
