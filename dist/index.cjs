@@ -32,38 +32,20 @@ function chainToString(calls) {
     return `${call.method}${args}`;
   }).join(".");
 }
-function stringToChain(api, str) {
-  const mockRoot = fluent({ api, ctx: {} });
-  const splitPath = str.split(".");
-  const path = [];
-  let current = "";
-  splitPath.forEach((part) => {
-    current += part;
-    const openBrackets = (current.match(/\(/g) || []).length;
-    const closeBrackets = (current.match(/\)/g) || []).length;
-    if (openBrackets === closeBrackets) {
-      path.push(current);
-      current = "";
-    } else {
-      current += ".";
-    }
-  });
-  let currentNode = mockRoot;
-  path.forEach((part) => {
-    const methodName = part.replace(/\(.*\)/, "");
-    const argsMatch = part.match(/\((.*)\)/);
-    let args = argsMatch ? argsMatch[1] : null;
+function stringToChain(api, chain) {
+  const root = fluent({ api, ctx: {} });
+  const path = chain.split(".");
+  let current = root;
+  for (const key of path) {
+    let [name, args] = key.split("(");
+    args = args ? args.slice(0, -1) : args;
     if (args) {
-      try {
-        args = JSON.parse(args);
-      } catch (e) {
-      }
-      currentNode = currentNode[methodName](args);
+      current = current[name](args);
     } else {
-      currentNode = currentNode[methodName];
+      current = current[name];
     }
-  });
-  return JSON.parse(JSON.stringify(currentNode));
+  }
+  return JSON.parse(JSON.stringify(current));
 }
 
 // src/fluent.ts

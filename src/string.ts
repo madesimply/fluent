@@ -22,44 +22,20 @@ export function chainToString(calls: ApiCall[]): string {
  * @param str - The method chain string to execute.
  * @returns The result of executing the method chain on the mock API.
  */
-export function stringToChain(api: Record<string, any>, str: string): any {
-  const mockRoot = fluent({ api, ctx: {} });
+export function stringToChain(api: Record<string, any>, chain: string): any {
+  const root = fluent({ api, ctx: {} });
+  const path = chain.split(".");
 
-  const splitPath = str.split('.');
-  const path: string[] = [];
-  let current: string = '';
-
-  // Parse the method chain string into a list of method calls
-  splitPath.forEach(part => {
-    current += part;
-    const openBrackets = (current.match(/\(/g) || []).length;
-    const closeBrackets = (current.match(/\)/g) || []).length;
-
-    if (openBrackets === closeBrackets) {
-      path.push(current);
-      current = '';
-    } else {
-      current += '.';
-    }
-  });
-
-  // Traverse the parsed path on the mockRoot
-  let currentNode: any = mockRoot;
-  path.forEach(part => {
-    // Extract method name and arguments
-    const methodName = part.replace(/\(.*\)/, '');
-    const argsMatch = part.match(/\((.*)\)/);
-    let args = argsMatch ? argsMatch[1] : null;
+  let current: any = root;
+  for (const key of path) {
+    let [name, args] = key.split("(");
+    args = args ? args.slice(0, -1) : args;
     if (args) {
-      try {
-        args = JSON.parse(args);
-      } catch (e) {}
-      currentNode = currentNode[methodName](args);
+      current = current[name](args);
     } else {
-      currentNode = currentNode[methodName];
+      current = current[name];
     }
-  });
+  }
 
-  // Execute the final method in the chain
-  return JSON.parse(JSON.stringify(currentNode));
+  return JSON.parse(JSON.stringify(current));
 }
