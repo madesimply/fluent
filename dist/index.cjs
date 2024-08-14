@@ -43,16 +43,15 @@ function stringToChain(api, chain) {
 }
 
 // src/fluent.ts
-function runMethod(api, ctx, call) {
+function runMethod(api, data, call) {
   const { method, args } = call;
   const methodFunc = method.split(".").reduce((acc, key) => acc[key], api);
-  return methodFunc(ctx, ...args || []);
+  return methodFunc(data, ...args || []);
 }
 async function runPromises(api, data, firstResult, calls) {
-  await firstResult;
   data = firstResult === void 0 ? data : firstResult;
   for (const call of calls) {
-    console.log(data);
+    await data;
     const result = runMethod(api, data, call);
     await result;
     data = result === void 0 ? data : result;

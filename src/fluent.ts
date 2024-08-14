@@ -4,14 +4,14 @@ import { ApiCall, Ctx, Fluent, RequiredContext, StringChain } from "./types";
 /**
  * Executes a method from the API with the provided context and arguments.
  * @param api - The API object containing the methods.
- * @param ctx - The context object passed to the method.
+ * @param data - The context object passed to the method.
  * @param call - An object containing the method name and arguments.
  * @returns The result of the method execution.
  */
-function runMethod(api: Record<string, any>, ctx: any, call: ApiCall) {
+function runMethod(api: Record<string, any>, data: any, call: ApiCall) {
   const { method, args } = call;
   const methodFunc: any = method.split(".").reduce((acc, key) => acc[key], api);
-  return methodFunc(ctx, ...(args || []));
+  return methodFunc(data, ...(args || []));
 }
 
 /**
@@ -28,10 +28,9 @@ async function runPromises(
   firstResult: Promise<any>,
   calls: ApiCall[]
 ) {
-  await firstResult;
   data = firstResult === undefined ? data : firstResult;
   for (const call of calls) {
-    console.log(data);
+    await data;
     const result = runMethod(api, data, call);
     await result;
     data = result === undefined ? data : result;
