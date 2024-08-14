@@ -28,11 +28,12 @@ async function runPromises(
   firstResult: Promise<any>,
   calls: ApiCall[]
 ) {
+  await firstResult;
   data = firstResult === undefined ? data : firstResult;
-  await data;
-  
   for (const call of calls) {
-    const result = await runMethod(api, data, call);
+    console.log(data);
+    const result = runMethod(api, data, call);
+    await result;
     data = result === undefined ? data : result;
   }
   return data;
