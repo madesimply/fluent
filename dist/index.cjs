@@ -52,10 +52,7 @@ async function runPromises(api, data, firstResult, calls) {
   await firstResult;
   data = firstResult === void 0 ? data : firstResult;
   for (const call of calls) {
-    const result = runMethod(api, data, call);
-    if (result instanceof Promise) {
-      await result;
-    }
+    const result = await runMethod(api, data, call);
     data = result === void 0 ? data : result;
   }
   return data;

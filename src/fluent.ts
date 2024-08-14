@@ -31,10 +31,7 @@ async function runPromises(
   await firstResult;
   data = firstResult === undefined ? data : firstResult;
   for (const call of calls) {
-    const result = runMethod(api, data, call);
-    if (result instanceof Promise) {
-      await result;
-    }
+    const result = await runMethod(api, data, call);
     data = result === undefined ? data : result;
   }
   return data;
