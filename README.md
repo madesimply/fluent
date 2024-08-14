@@ -218,7 +218,12 @@ chain.noArgs.withArgs('here');
 ```
 The workaround is to use an array.
 ```typescript
-chain.withNplusArgs([...data]);
+chain.withNplusArgs([data, 'test', 2]);
+
+// in withNPlusArgs you can then spread
+function withNPlusArgs([...args]) {
+
+}
 ```
 
 ### Args must be serializable
