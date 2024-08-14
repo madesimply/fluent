@@ -75,7 +75,9 @@ function createProxy(api, parentCalls, path, ctx) {
   const handler = {
     get(_, prop) {
       if (prop === "run") return run;
-      if (prop === "toJSON") return () => calls;
+      if (prop === "toJSON") return () => {
+        JSON.parse(JSON.stringify(calls));
+      };
       if (prop === "goto")
         return (call) => {
           const goto = {

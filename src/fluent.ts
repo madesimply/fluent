@@ -103,7 +103,11 @@ function createProxy<T extends Record<string, any>>(
   const handler: ProxyHandler<any> = {
     get(_, prop: string | symbol): any {
       if (prop === "run") return run;
-      if (prop === "toJSON") return () => calls;
+      if (prop === "toJSON") return () => {
+        // we have to parse in case theres nested chains
+        // otherwise they'll come out as Proxy objects
+        JSON.parse(JSON.stringify(calls));
+      };
       if (prop === "goto")
         return (call: ApiCall) => {
           const goto = {

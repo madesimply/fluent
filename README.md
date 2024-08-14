@@ -119,7 +119,7 @@ const chain = root.hello;
 ```
 
 ### chain
-optional chain to re-hydrate against the api
+optional chain to re-hydrate against the api. can be parsed object `[{ method: "test" }, { method: "chain", args: [ "hello" ] }]` or a string representation `test.chain("hello")`
 ```typescript
 
 const hello = fluent({ api, chain });
@@ -143,11 +143,18 @@ const result = root
 ### toJSON
 returns an object representation of the chain. usually used for serialization via `JSON.stringify(chain)` but handy if you need to make chain transformations.
 ```typescript
-const result = root
-    .add(3)
-    .run(0) // 3
+const json = root.add(3).toJSON();
+
+// transform the chain if you want
+
+console.log(json); // [ { method: "add", args: [3] }]
 ```
 
+### toString
+returns a string representation of the chain. useful for storage or communication. 
+```typescript
+root.add(3).add(5).toString(); // add(3).add(5)
+```
 
 ### goto
 goes to the next equivalent operation in the chain, if not found looks from the beginning. exact match with methods and args.
