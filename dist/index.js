@@ -23,12 +23,10 @@ function runMethod(api, data, call) {
   return methodFunc(data, ...args || []);
 }
 async function runPromises(api, data, firstResult, calls) {
-  data = firstResult === void 0 ? data : firstResult;
+  data = await (firstResult === void 0 ? data : firstResult) ?? data;
   for (const call of calls) {
-    await data;
     const result = runMethod(api, data, call);
-    await result;
-    data = result === void 0 ? data : result;
+    data = await result ?? data;
   }
   return data;
 }
