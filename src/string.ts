@@ -24,7 +24,7 @@ export function chainToString(calls: ApiCall[]): string {
 export function stringToChain(api: Record<string, any>, chain: string): any {
   const getChain = new Function('api', 'fluent', `
     const root = fluent({ api });
-    const { ${Object.keys(api).join(',')} } = api;
+    const { ${Object.keys(api).join(',')} } = root;
     const chain = root.${chain};
     return JSON.parse(JSON.stringify(chain));
   `);

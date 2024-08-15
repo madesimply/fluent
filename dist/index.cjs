@@ -35,7 +35,7 @@ function chainToString(calls) {
 function stringToChain(api, chain) {
   const getChain = new Function("api", "fluent", `
     const root = fluent({ api });
-    const { ${Object.keys(api).join(",")} } = api;
+    const { ${Object.keys(api).join(",")} } = root;
     const chain = root.${chain};
     return JSON.parse(JSON.stringify(chain));
   `);
