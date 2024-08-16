@@ -92,9 +92,9 @@ function createProxy(api, parentCalls, path, ctx) {
   const handler = {
     getOwnPropertyDescriptor(_, prop) {
       if (prop === "run" || prop === "toJSON" || prop === "goto" || prop === "toString") {
-        return Object.getOwnPropertyDescriptor({}, prop);
+        return { configurable: false, enumerable: false, writable: false };
       }
-      return Object.getOwnPropertyDescriptor(api, prop);
+      return Reflect.getOwnPropertyDescriptor(api, prop);
     },
     get(_, prop) {
       if (prop === "run") return run;

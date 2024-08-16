@@ -101,9 +101,9 @@ function createProxy<T extends Record<string, any>>(
   const handler: ProxyHandler<any> = {
     getOwnPropertyDescriptor(_, prop: string | symbol): PropertyDescriptor | undefined {
       if (prop === "run" || prop === "toJSON" || prop === "goto" || prop === "toString") {
-        return Object.getOwnPropertyDescriptor({}, prop);
+        return { configurable: false, enumerable: false, writable: false};
       }
-      return Object.getOwnPropertyDescriptor(api, prop);
+      return Reflect.getOwnPropertyDescriptor(api, prop);
     },
     get(_, prop: string | symbol): any {
       if (prop === "run") return run;
