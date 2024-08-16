@@ -72,7 +72,6 @@ async function runPromises(api, data, firstResult, calls) {
   for (const call of calls) {
     const result = runMethod(api, data, call);
     data = await result ?? data;
-    await runMethod(api, data, call);
   }
   return data;
 }
@@ -102,7 +101,7 @@ function createProxy(api, parentCalls, path, ctx) {
       }
       const result = runMethod(api, data, call);
       if (result instanceof Promise) {
-        const remaining = calls.slice(calls.indexOf(call) + 1);
+        const remaining = calls.slice(i + 1);
         return runPromises(api, data, result, remaining);
       }
       data = result === void 0 ? data : result;
