@@ -42,10 +42,9 @@ function runMethod(api, data, call) {
   return methodFunc(data, ...args || []);
 }
 async function runPromises(api, data, firstResult, calls) {
-  data = await (firstResult === void 0 ? data : firstResult) ?? data;
+  await firstResult;
   for (const call of calls) {
-    const result = runMethod(api, data, call);
-    data = await result ?? data;
+    await runMethod(api, data, call);
   }
   return data;
 }
@@ -78,7 +77,6 @@ function createProxy(api, parentCalls, path, ctx) {
         const remaining = calls.slice(calls.indexOf(call) + 1);
         return runPromises(api, data, result, remaining);
       }
-      data = result === void 0 ? data : result;
       if (goto > -1) continue;
     }
     if (goto > -1) {
@@ -186,3 +184,4 @@ export {
   fluent,
   initChain
 };
+//# sourceMappingURL=index.js.map

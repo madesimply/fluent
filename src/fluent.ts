@@ -28,10 +28,9 @@ async function runPromises(
   firstResult: Promise<any>,
   calls: ApiCall[]
 ) {
-  data = (await (firstResult === undefined ? data : firstResult)) ?? data;
+  await firstResult;
   for (const call of calls) {
-    const result = runMethod(api, data, call);
-    data = (await result) ?? data;
+    await runMethod(api, data, call);
   }
   return data;
 }
@@ -86,7 +85,6 @@ function createProxy<T extends Record<string, any>>(
         const remaining = calls.slice(calls.indexOf(call) + 1);
         return runPromises(api, data, result, remaining);
       }
-      data = result === undefined ? data : result;
       if (goto > -1) continue;
     }
     if (goto > -1) {
