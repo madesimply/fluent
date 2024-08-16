@@ -1,6 +1,25 @@
 import { fluent } from "./fluent";
 import { ApiCall } from "./types";
 
+function argToString(arg: any): string {
+  if (typeof arg === "string") {
+    return `"${arg}"`;
+  }
+
+  if (arg && arg.method) {
+    return chainToString([arg]);
+  }
+
+  if (Array.isArray(arg)) {
+    return `[${arg.map((v) => argToString(v)).join(", ")}]`;
+  }
+  if (arg && typeof arg === "object") {
+    return `{ ${Object.entries(arg).map(([k, v]) => `${k}: ${argToString(v)}`).join(", ")} }`;
+  }
+  return arg;
+
+}
+
 /**
  * Converts an array of API calls into a string representation of a method chain.
  * @param calls - An array of API calls.
@@ -9,8 +28,15 @@ import { ApiCall } from "./types";
 export function chainToString(calls: ApiCall[]): string {
   return calls
     .map((call) => {
-      const args = call.args?.length ? `(${call.args.join(", ")})` : "";
-      return `${call.method}${args}`;
+      if (!call.args) {
+        return call.method;
+      }
+
+      const args = call.args.map((arg) => {
+        return argToString(arg);
+      }).join(", ");
+
+      return `${call.method}(${args})`;
     })
     .join(".");
 }

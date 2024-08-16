@@ -25,11 +25,30 @@ __export(src_exports, {
 module.exports = __toCommonJS(src_exports);
 
 // src/string.ts
+function argToString(arg) {
+  if (typeof arg === "string") {
+    return `"${arg}"`;
+  }
+  if (arg && arg.method) {
+    return chainToString([arg]);
+  }
+  if (Array.isArray(arg)) {
+    return `[${arg.map((v) => argToString(v)).join(", ")}]`;
+  }
+  if (arg && typeof arg === "object") {
+    return `{ ${Object.entries(arg).map(([k, v]) => `${k}: ${argToString(v)}`).join(", ")} }`;
+  }
+  return arg;
+}
 function chainToString(calls) {
   return calls.map((call) => {
-    var _a;
-    const args = ((_a = call.args) == null ? void 0 : _a.length) ? `(${call.args.join(", ")})` : "";
-    return `${call.method}${args}`;
+    if (!call.args) {
+      return call.method;
+    }
+    const args = call.args.map((arg) => {
+      return argToString(arg);
+    }).join(", ");
+    return `${call.method}(${args})`;
   }).join(".");
 }
 function stringToChain(api, chain) {
