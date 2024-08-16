@@ -90,6 +90,12 @@ function createProxy(api, parentCalls, path, ctx) {
     return data;
   };
   const handler = {
+    getOwnPropertyDescriptor(_, prop) {
+      if (prop === "run" || prop === "toJSON" || prop === "goto" || prop === "toString") {
+        return Object.getOwnPropertyDescriptor({}, prop);
+      }
+      return Object.getOwnPropertyDescriptor(api, prop);
+    },
     get(_, prop) {
       if (prop === "run") return run;
       if (prop === "toJSON") return () => calls;
