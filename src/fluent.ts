@@ -99,11 +99,11 @@ function createProxy<T extends Record<string, any>>(
   };
 
   const handler: ProxyHandler<any> = {
-    getOwnPropertyDescriptor(_, prop: string | symbol): PropertyDescriptor | undefined {
+    has(_, prop: string | symbol): boolean {
       if (prop === "run" || prop === "toJSON" || prop === "goto" || prop === "toString") {
-        return { configurable: false, enumerable: false, writable: false};
+        return true;
       }
-      return Reflect.getOwnPropertyDescriptor(api, prop);
+      return prop in api;
     },
     get(_, prop: string | symbol): any {
       if (prop === "run") return run;

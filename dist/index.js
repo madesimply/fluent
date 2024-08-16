@@ -90,11 +90,11 @@ function createProxy(api, parentCalls, path, ctx) {
     return data;
   };
   const handler = {
-    getOwnPropertyDescriptor(_, prop) {
+    has(_, prop) {
       if (prop === "run" || prop === "toJSON" || prop === "goto" || prop === "toString") {
-        return { configurable: false, enumerable: false, writable: false };
+        return true;
       }
-      return Reflect.getOwnPropertyDescriptor(api, prop);
+      return prop in api;
     },
     get(_, prop) {
       if (prop === "run") return run;
