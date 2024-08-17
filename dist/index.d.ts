@@ -7,11 +7,7 @@ type Ctx = {
     [key: string]: any;
 };
 type Fluent<T> = {
-    [K in keyof T]: T[K] extends (ctx: any, ...args: infer Rest) => any ? Rest extends [infer First, ...any[]] ? [
-        First
-    ] extends [undefined] ? Fluent<T> & {
-        (): Fluent<T>;
-    } : (...args: Rest) => Fluent<T> : Fluent<T> & {
+    [K in keyof T]: T[K] extends (ctx: any, ...args: infer Rest) => any ? Rest extends [infer First, ...any[]] ? (...args: Rest) => Fluent<T> : Fluent<T> & {
         (): Fluent<T>;
     } : T[K] extends object ? Fluent<T[K]> : never;
 } & {

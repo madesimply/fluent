@@ -121,9 +121,6 @@ function createProxy(api, parentCalls, path, ctx) {
       }
       if (typeof targetValue === "function") {
         const func = targetValue;
-        if (func.length <= 1) {
-          return createProxy(api, [...calls, { method: fullPath }], path, ctx);
-        }
         return (...args) => {
           return createProxy(
             api,

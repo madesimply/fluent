@@ -23,11 +23,11 @@ export type Fluent<T> = {
       Rest extends [infer First, ...any[]] ? 
         
         // If the first argument is optional, treat the function like a property
-        [First] extends [undefined] ? 
-          Fluent<T> & { (): Fluent<T> } 
+        // [First] extends [undefined] ? 
+        //   Fluent<T> & { (): Fluent<T> } :
           
           // Otherwise, enforce the function arguments
-          : (...args: Rest) => Fluent<T> 
+        (...args: Rest) => Fluent<T> 
           
       // If the function has no arguments, treat it like a property
       : Fluent<T> & { (): Fluent<T> } 

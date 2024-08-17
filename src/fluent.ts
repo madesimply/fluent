@@ -134,9 +134,9 @@ function createProxy<T extends Record<string, any>>(
 
       if (typeof targetValue === "function") {
         const func = targetValue as Function;
-        if (func.length <= 1) {
-          return createProxy(api, [...calls, { method: fullPath }], path, ctx);
-        }
+        // if (func.length <= 1) {
+        //   return createProxy(api, [...calls, { method: fullPath }], path, ctx);
+        // }
         return (...args: any[]) => {
           return createProxy(
             api,
