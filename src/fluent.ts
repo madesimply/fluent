@@ -238,7 +238,7 @@ function processArgument<T extends Record<string, any>>(
  * @param params.ctx - The context object required by the API methods.
  * @returns A fluent interface for the given API.
  */
-export function fluent<T extends Record<string, any>, D extends any>({
+export function fluent<T extends Record<string, any>, D extends any, V = T>({
   api,
   chain = [],
   ctx,
@@ -246,10 +246,10 @@ export function fluent<T extends Record<string, any>, D extends any>({
   api: T;
   chain?: StringChain | ApiCall[];
   ctx: RequiredContext<T>;
-}): Fluent<T, D> {
+}): Fluent<T, D, V> {
   const jsonChain = typeof chain === "string" ? stringToChain(api, chain) : chain;
   const path = jsonChain.length ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1) : [];
   const boundApi = bindConfigToApi(api, ctx || {});
   const parsedChain = chain ? initChain(jsonChain, boundApi, ctx) : [];
-  return createProxy<T, D>(boundApi, parsedChain, path, ctx || {}) as Fluent<T, D>;
+  return createProxy<T, D>(boundApi, parsedChain, path, ctx || {}) as Fluent<T, D, V>;
 }

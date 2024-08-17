@@ -39,10 +39,10 @@ declare function initChain<T extends Record<string, any>>(chain: ApiCall[], api:
  * @param params.ctx - The context object required by the API methods.
  * @returns A fluent interface for the given API.
  */
-declare function fluent<T extends Record<string, any>, D extends any>({ api, chain, ctx, }: {
+declare function fluent<T extends Record<string, any>, D extends any, V = T>({ api, chain, ctx, }: {
     api: T;
     chain?: StringChain | ApiCall[];
     ctx: RequiredContext<T>;
-}): Fluent<T, D>;
+}): Fluent<T, D, V>;
 
 export { type ApiCall, type Ctx, type ExtractThisType, type Fluent, type RequiredContext, type StringChain, type UnionThisTypes, type UnionToIntersection, fluent, initChain };
