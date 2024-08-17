@@ -24,7 +24,7 @@ export type Fluent<T, D> = {
       never;
 } & {
   // Allows the execution of the API chain with an optional context
-  run: (args?: D) => any;
+  run: unknown extends D ? (args?: D) => any : (args: D) => any;
 
   // Allows jumping to a different call in the fluent chain
   goto: (call: Fluent<T, D>) => Fluent<T, D>;
