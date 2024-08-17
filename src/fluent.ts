@@ -65,7 +65,7 @@ function callIndex(calls: ApiCall[], call: ApiCall, current: number) {
  * @param ctx - The context configuration object.
  * @returns A proxy object that supports method chaining.
  */
-function createProxy<T extends Record<string, any>>(
+function createProxy<T extends Record<string, any>, D extends any>(
   api: T,
   parentCalls: ApiCall[],
   path: string[],
@@ -73,7 +73,7 @@ function createProxy<T extends Record<string, any>>(
 ): any {
   const calls = [...parentCalls];
 
-  const run = (data: any, from = 0) => {
+  const run = (data: D, from = 0) => {
     let goto = -1;
     for (let i = from; i < calls.length; i++) {
       let call = calls[i];
@@ -133,10 +133,6 @@ function createProxy<T extends Record<string, any>>(
       }
 
       if (typeof targetValue === "function") {
-        // const func = targetValue as Function;
-        // if (func.length <= 1) {
-        //   return createProxy(api, [...calls, { method: fullPath }], path, ctx);
-        // }
         return (...args: any[]) => {
           return createProxy(
             api,
@@ -242,7 +238,7 @@ function processArgument<T extends Record<string, any>>(
  * @param params.ctx - The context object required by the API methods.
  * @returns A fluent interface for the given API.
  */
-export function fluent<T extends Record<string, any>>({
+export function fluent<T extends Record<string, any>, D extends any>({
   api,
   chain = [],
   ctx,
@@ -250,10 +246,10 @@ export function fluent<T extends Record<string, any>>({
   api: T;
   chain?: StringChain | ApiCall[];
   ctx: RequiredContext<T>;
-}): Fluent<T> {
+}): Fluent<T, D> {
   const jsonChain = typeof chain === "string" ? stringToChain(api, chain) : chain;
   const path = jsonChain.length ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1) : [];
   const boundApi = bindConfigToApi(api, ctx || {});
   const parsedChain = chain ? initChain(jsonChain, boundApi, ctx) : [];
-  return createProxy(boundApi, parsedChain, path, ctx || {}) as Fluent<T>;
+  return createProxy<T, D>(boundApi, parsedChain, path, ctx || {}) as Fluent<T, D>;
 }
