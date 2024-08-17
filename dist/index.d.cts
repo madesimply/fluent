@@ -7,7 +7,7 @@ type Ctx = {
     [key: string]: any;
 };
 type Fluent<T> = {
-    [K in keyof T]: T[K] extends (ctx: any, ...args: infer Rest) => any ? Rest extends [infer First, ...any[]] ? (...args: Rest) => Fluent<T> : T[K] extends object ? Fluent<T[K]> : never : never;
+    [K in keyof T]: T[K] extends (ctx: any, ...args: infer Rest) => any ? Rest extends [infer First, ...any[]] ? (...args: Rest) => Fluent<T> : (...args: Rest) => Fluent<T> : T[K] extends object ? Fluent<T[K]> : never;
 } & {
     run: (args?: any) => any;
     goto: (call: Fluent<T>) => Fluent<T>;
