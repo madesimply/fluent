@@ -146,7 +146,6 @@ function createProxy(api, parentCalls, path, ctx) {
         return createProxy(api, calls, newPath, ctx);
       }
       if (typeof targetValue === "function") {
-        const func = targetValue;
         return (...args) => {
           return createProxy(
             api,
