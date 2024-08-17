@@ -6,12 +6,13 @@ type ApiCall = {
 type Ctx = {
     [key: string]: any;
 };
-type Fluent<T, D> = {
+type Fluent<T, D, V = T> = {
     [K in keyof T]: T[K] extends (ctx: any, ...args: infer Rest) => any ? (...args: Rest) => Fluent<T, D> : T[K] extends object ? Fluent<T[K], D> : never;
 } & {
     run: D extends undefined ? (args?: any) => any : (args: D) => any;
     goto: (call: Fluent<T, D>) => Fluent<T, D>;
     toString: () => string;
+    validator: V;
 };
 type ExtractThisType<T> = T extends (this: infer U, ...args: any[]) => any ? U : never;
 type UnionThisTypes<T> = T extends object ? {
