@@ -19,24 +19,29 @@ export type Fluent<T> = {
     // If the property is a function, infer its argument types
     T[K] extends (ctx: any, ...args: infer Rest) => any ? 
       
-      // Check if the function has at least one argument
-      Rest extends [infer First, ...any[]] ? 
-        
-        // If the first argument is optional, treat the function like a property
-        // [First] extends [undefined] ? 
-          // Fluent<T> & { (): Fluent<T> } : 
-          
-          // Otherwise, enforce the function arguments
-          (...args: Rest) => Fluent<T> 
-          
-      // If the function has no arguments, treat it like a property
-      : (...args: Rest) => Fluent<T> 
-      
-      // If the property is an object, recursively apply the Fluent type
-      : T[K] extends object ? 
+    (...args: Rest) => Fluent<T> : 
+
+    T[K] extends object ? 
         Fluent<T[K]> 
+    
+      // // Check if the function has at least one argument
+      // Rest extends [infer First, ...any[]] ? 
+        
+      //   // If the first argument is optional, treat the function like a property
+      //   [First] extends [undefined] ? 
+      //     Fluent<T> & { (): Fluent<T> } 
+          
+      //     // Otherwise, enforce the function arguments
+      //     : (...args: Rest) => Fluent<T> 
+          
+      // // If the function has no arguments, treat it like a property
+      // : Fluent<T> & { (): Fluent<T> } 
       
-      // If the property is neither a function nor an object, it's not supported in the fluent interface
+      // // If the property is an object, recursively apply the Fluent type
+      // : T[K] extends object ? 
+      //   Fluent<T[K]> 
+      
+      // // If the property is neither a function nor an object, it's not supported in the fluent interface
       : never;
 } & { 
   // Allows the execution of the API chain with an optional context
