@@ -16,8 +16,8 @@ export type Ctx = {
 // - For nested objects, recursively applies the same transformation, allowing deeper structures to also be fluent.
 export type Fluent<T, D> = {
   [K in keyof T]: // If the property is a function, infer its argument types
-  T[K] extends (ctx: any, ...args: infer Rest) => any
-    ? (...args: Rest) => Fluent<T, D>
+  T[K] extends (ctx: any, ...args: infer Rest) => infer R
+    ? (...args: Rest) => Fluent<T, D> & R
     : T[K] extends object
     ? Fluent<T[K], D>
     : // // If the property is neither a function nor an object, it's not supported in the fluent interface
