@@ -6,13 +6,12 @@ type ApiCall = {
 type Ctx = {
     [key: string]: any;
 };
-type Fluent<T, D, V = T> = {
+type Fluent<T, D> = {
     [K in keyof T]: T[K] extends (ctx: any, ...args: infer Rest) => any ? (...args: Rest) => Fluent<T, D> : T[K] extends object ? Fluent<T[K], D> : never;
 } & {
     run: D extends undefined ? (args?: any) => any : (args: D) => any;
     goto: (call: Fluent<T, D>) => Fluent<T, D>;
     toString: () => string;
-    validator: V;
 };
 type ExtractThisType<T> = T extends (this: infer U, ...args: any[]) => any ? U : never;
 type UnionThisTypes<T> = T extends object ? {
@@ -39,10 +38,10 @@ declare function initChain<T extends Record<string, any>>(chain: ApiCall[], api:
  * @param params.ctx - The context object required by the API methods.
  * @returns A fluent interface for the given API.
  */
-declare function fluent<T extends Record<string, any>, D extends any, V = T>({ api, chain, ctx, }: {
+declare function fluent<T extends Record<string, any>, D extends any>({ api, chain, ctx, }: {
     api: T;
     chain?: StringChain | ApiCall[];
     ctx: RequiredContext<T>;
-}): Fluent<T, D, V>;
+}): Fluent<T, D>;
 
 export { type ApiCall, type Ctx, type ExtractThisType, type Fluent, type RequiredContext, type StringChain, type UnionThisTypes, type UnionToIntersection, fluent, initChain };

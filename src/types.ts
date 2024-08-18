@@ -14,7 +14,7 @@ export type Ctx = {
 // - For functions with no arguments or only optional arguments, allows them to be called as properties.
 // - For functions with required arguments, ensures they are invoked with the correct arguments.
 // - For nested objects, recursively applies the same transformation, allowing deeper structures to also be fluent.
-export type Fluent<T, D, V = T> = {
+export type Fluent<T, D> = {
   [K in keyof T]: // If the property is a function, infer its argument types
   T[K] extends (ctx: any, ...args: infer Rest) => any
     ? (...args: Rest) => Fluent<T, D>
@@ -31,9 +31,6 @@ export type Fluent<T, D, V = T> = {
 
   // Returns the current API chain as a string
   toString: () => string;
-
-  // retain the original API object for reference
-  validator: V;
 };
 
 // Extracts the `this` type from a function, or returns `never` if the input is not a function.
