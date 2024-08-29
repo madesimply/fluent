@@ -1,9 +1,6 @@
 // fluent.ts
 
 import {
-  RuntimeApiCall,
-  GotoItem,
-  ChainItem,
   Chain,
   FluentProxyStructure,
   FluentProxy,
@@ -11,7 +8,6 @@ import {
   ApiContext,
   HasRequiredProperties,
   FluentOptions,
-  ApiCall,
 } from './types';
 
 // Utility functions
@@ -19,23 +15,12 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function isApiCall(item: unknown): item is RuntimeApiCall {
+function isChainItem(item: unknown): item is Chain[number] {
   return (
     typeof item === 'object' &&
     item !== null &&
     'method' in item &&
     typeof (item as any).method === 'string' &&
-    'args' in item &&
-    Array.isArray((item as any).args)
-  );
-}
-
-function isGotoItem(item: unknown): item is GotoItem {
-  return (
-    typeof item === 'object' &&
-    item !== null &&
-    'goto' in item &&
-    typeof (item as any).goto === 'string' &&
     'args' in item &&
     Array.isArray((item as any).args)
   );
@@ -55,18 +40,9 @@ function processArgument(arg: unknown, api: any, ctx: any): any {
     return fluent({ api, chain: arg.chain, ctx });
   }
   if (Array.isArray(arg)) {
-    if (arg.every((a) => isApiCall(a) || isGotoItem(a))) {
-      return fluent({ api, chain: arg, ctx });
-    }
     return arg.map((item) => processArgument(item, api, ctx));
   }
-  if (isApiCall(arg)) {
-    return {
-      ...arg,
-      args: arg.args.map(a => processArgument(a, api, ctx))
-    };
-  }
-  if (isGotoItem(arg)) {
+  if (isChainItem(arg)) {
     return {
       ...arg,
       args: arg.args.map(a => processArgument(a, api, ctx))
@@ -82,15 +58,9 @@ function processArgument(arg: unknown, api: any, ctx: any): any {
   return arg;
 }
 
-function chainItemToString(item: ChainItem): string {
-  if (isApiCall(item)) {
-    const args = item.args.map(arg => JSON.stringify(arg)).join(', ');
-    return `${item.method}(${args})`;
-  } else if (isGotoItem(item)) {
-    const args = item.args.map(arg => JSON.stringify(arg)).join(', ');
-    return `goto(${item.goto}(${args}))`;
-  }
-  return ''; // This should never happen if ChainItem is correctly typed
+function chainItemToString(item: Chain[number]): string {
+  const args = item.args.map(arg => JSON.stringify(arg)).join(', ');
+  return `${item.method}(${args})`;
 }
 
 function createProxy<TRootApi, TCurrentApi, TCurrentChain extends Chain, TPath extends string>(
@@ -104,16 +74,10 @@ function createProxy<TRootApi, TCurrentApi, TCurrentChain extends Chain, TPath e
     chain: currentChain,
     run: (data: any) => runChain(rootApi, data, currentChain, options),
     goto: (fluentProxy: FluentProxyStructure) => {
-      console.log('Goto received:', fluentProxy);
-      if (!isFluentProxy(fluentProxy) || fluentProxy.chain.length === 0 || !isApiCall(fluentProxy.chain[0])) {
-        throw new Error("Goto must receive a non-empty FluentProxy with an ApiCall as its first chain item");
+      if (!isFluentProxy(fluentProxy) || fluentProxy.chain.length === 0) {
+        throw new Error("Goto must receive a non-empty FluentProxy");
       }
-      const firstApiCall = fluentProxy.chain[0] as RuntimeApiCall;
-      const gotoItem: GotoItem = { 
-        goto: firstApiCall.method, 
-        args: firstApiCall.args as ReadonlyArray<any>
-      };
-      return createProxy(rootApi, currentApi, [...currentChain, gotoItem] as any, path, options);
+      return createProxy(rootApi, currentApi, [...currentChain, ...fluentProxy.chain] as any, path, options);
     },
     toString: () => currentChain.map(chainItemToString).join('.').replace(/\.$/, '')
   } as FluentProxy<TRootApi, TCurrentApi, TCurrentChain, TPath>;
@@ -145,8 +109,8 @@ function createProxy<TRootApi, TCurrentApi, TCurrentChain extends Chain, TPath e
             { 
               method, 
               args: args.map(arg => isFluentProxy(arg) ? arg.chain[0] : arg),
-              dataType: {} as any,
-              returnType: {} as any
+              data: {} as any,
+              return: {} as any
             }
           ];
           return createProxy(rootApi, currentApi, newChain, path, options);
@@ -161,7 +125,6 @@ function createProxy<TRootApi, TCurrentApi, TCurrentChain extends Chain, TPath e
     }
   });
 }
-
 function bindApiToContext<TApi, TCtx>(api: TApi, ctx: TCtx = {} as TCtx): TApi {
   const boundApi: any = {};
   for (const key in api) {
@@ -197,13 +160,7 @@ function parseInitialChain<TApi, TCtx, T extends Chain | string | undefined>(
   }
 
   return jsonChain.map((item) => {
-    if (isApiCall(item)) {
-      return {
-        ...item,
-        args: item.args.map((arg) => processArgument(arg, api, ctx))
-      };
-    }
-    if (isGotoItem(item)) {
+    if (isChainItem(item)) {
       return {
         ...item,
         args: item.args.map((arg) => processArgument(arg, api, ctx))
@@ -211,36 +168,6 @@ function parseInitialChain<TApi, TCtx, T extends Chain | string | undefined>(
     }
     return item;
   }) as any;
-}
-
-function findGotoTarget(chain: Chain, gotoItem: GotoItem, currentIndex: number): number {
-  // First, search forward from the current position
-  for (let i = currentIndex + 1; i < chain.length; i++) {
-    if (matchesGotoTarget(chain[i], gotoItem)) {
-      return i;
-    }
-  }
-
-  // If not found, search from the beginning up to the current position
-  for (let i = 0; i < currentIndex; i++) {
-    if (matchesGotoTarget(chain[i], gotoItem)) {
-      return i;
-    }
-  }
-
-  return -1; // Target not found
-}
-
-function matchesGotoTarget(
-  chainItem: ChainItem,
-  gotoItem: GotoItem
-): boolean {
-  if (!isApiCall(chainItem)) {
-    return false;
-  }
-  return chainItem.method === gotoItem.goto && 
-         chainItem.args.length === gotoItem.args.length &&
-         chainItem.args.every((arg, index) => arg === gotoItem.args[index]);
 }
 
 const setImmediate = window.setImmediate || ((fn: Function, ...args: any[]) => setTimeout(fn, 0, ...args));
@@ -257,19 +184,7 @@ function runChain<TApi>(api: TApi, initialData: any, chain: Chain, options: Flue
 
     const item = chain[index];
 
-    if (isGotoItem(item)) {
-      const gotoIndex = findGotoTarget(chain, item, index);
-      if (gotoIndex !== -1) {
-        index = gotoIndex;
-        isAsync = true;
-        if (options.blocking) {
-          processNextItem();
-        } else {
-          setImmediate(processNextItem);
-        }
-        return;
-      }
-    } else if (isApiCall(item)) {
+    if (isChainItem(item)) {
       const method = item.method.split('.').reduce((obj: any, key) => obj[key], api);
       if (typeof method !== 'function') {
         throw new Error(`Method ${item.method} not found in API`);
@@ -301,13 +216,7 @@ async function runAsyncChain<TApi>(api: TApi, initialData: any, chain: Chain, op
   while (index < chain.length) {
     const item = chain[index];
 
-    if (isGotoItem(item)) {
-      const gotoIndex = findGotoTarget(chain, item, index);
-      if (gotoIndex !== -1) {
-        index = gotoIndex;
-        continue;
-      }
-    } else if (isApiCall(item)) {
+    if (isChainItem(item)) {
       const method = item.method.split('.').reduce((obj: any, key) => obj[key], api);
       if (typeof method !== 'function') {
         throw new Error(`Method ${item.method} not found in API`);

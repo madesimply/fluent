@@ -2,11 +2,8 @@
 function isObject(value) {
   return typeof value === "object" && value !== null;
 }
-function isApiCall(item) {
+function isChainItem(item) {
   return typeof item === "object" && item !== null && "method" in item && typeof item.method === "string" && "args" in item && Array.isArray(item.args);
-}
-function isGotoItem(item) {
-  return typeof item === "object" && item !== null && "goto" in item && typeof item.goto === "string" && "args" in item && Array.isArray(item.args);
 }
 function isFluentProxy(value) {
   return typeof value === "object" && value !== null && "chain" in value && Array.isArray(value.chain);
@@ -16,18 +13,9 @@ function processArgument(arg, api, ctx) {
     return fluent({ api, chain: arg.chain, ctx });
   }
   if (Array.isArray(arg)) {
-    if (arg.every((a) => isApiCall(a) || isGotoItem(a))) {
-      return fluent({ api, chain: arg, ctx });
-    }
     return arg.map((item) => processArgument(item, api, ctx));
   }
-  if (isApiCall(arg)) {
-    return {
-      ...arg,
-      args: arg.args.map((a) => processArgument(a, api, ctx))
-    };
-  }
-  if (isGotoItem(arg)) {
+  if (isChainItem(arg)) {
     return {
       ...arg,
       args: arg.args.map((a) => processArgument(a, api, ctx))
@@ -43,30 +31,18 @@ function processArgument(arg, api, ctx) {
   return arg;
 }
 function chainItemToString(item) {
-  if (isApiCall(item)) {
-    const args = item.args.map((arg) => JSON.stringify(arg)).join(", ");
-    return `${item.method}(${args})`;
-  } else if (isGotoItem(item)) {
-    const args = item.args.map((arg) => JSON.stringify(arg)).join(", ");
-    return `goto(${item.goto}(${args}))`;
-  }
-  return "";
+  const args = item.args.map((arg) => JSON.stringify(arg)).join(", ");
+  return `${item.method}(${args})`;
 }
 function createProxy(rootApi, currentApi, currentChain, path, options) {
   const target = {
     chain: currentChain,
     run: (data) => runChain(rootApi, data, currentChain, options),
     goto: (fluentProxy) => {
-      console.log("Goto received:", fluentProxy);
-      if (!isFluentProxy(fluentProxy) || fluentProxy.chain.length === 0 || !isApiCall(fluentProxy.chain[0])) {
-        throw new Error("Goto must receive a non-empty FluentProxy with an ApiCall as its first chain item");
+      if (!isFluentProxy(fluentProxy) || fluentProxy.chain.length === 0) {
+        throw new Error("Goto must receive a non-empty FluentProxy");
       }
-      const firstApiCall = fluentProxy.chain[0];
-      const gotoItem = {
-        goto: firstApiCall.method,
-        args: firstApiCall.args
-      };
-      return createProxy(rootApi, currentApi, [...currentChain, gotoItem], path, options);
+      return createProxy(rootApi, currentApi, [...currentChain, ...fluentProxy.chain], path, options);
     },
     toString: () => currentChain.map(chainItemToString).join(".").replace(/\.$/, "")
   };
@@ -94,8 +70,8 @@ function createProxy(rootApi, currentApi, currentChain, path, options) {
             {
               method,
               args: args.map((arg) => isFluentProxy(arg) ? arg.chain[0] : arg),
-              dataType: {},
-              returnType: {}
+              data: {},
+              return: {}
             }
           ];
           return createProxy(rootApi, currentApi, newChain, path, options);
@@ -136,13 +112,7 @@ function parseInitialChain(api, ctx, chain) {
     jsonChain = chain;
   }
   return jsonChain.map((item) => {
-    if (isApiCall(item)) {
-      return {
-        ...item,
-        args: item.args.map((arg) => processArgument(arg, api, ctx))
-      };
-    }
-    if (isGotoItem(item)) {
+    if (isChainItem(item)) {
       return {
         ...item,
         args: item.args.map((arg) => processArgument(arg, api, ctx))
@@ -150,25 +120,6 @@ function parseInitialChain(api, ctx, chain) {
     }
     return item;
   });
-}
-function findGotoTarget(chain, gotoItem, currentIndex) {
-  for (let i = currentIndex + 1; i < chain.length; i++) {
-    if (matchesGotoTarget(chain[i], gotoItem)) {
-      return i;
-    }
-  }
-  for (let i = 0; i < currentIndex; i++) {
-    if (matchesGotoTarget(chain[i], gotoItem)) {
-      return i;
-    }
-  }
-  return -1;
-}
-function matchesGotoTarget(chainItem, gotoItem) {
-  if (!isApiCall(chainItem)) {
-    return false;
-  }
-  return chainItem.method === gotoItem.goto && chainItem.args.length === gotoItem.args.length && chainItem.args.every((arg, index) => arg === gotoItem.args[index]);
 }
 var setImmediate = window.setImmediate || ((fn, ...args) => setTimeout(fn, 0, ...args));
 function runChain(api, initialData, chain, options) {
@@ -180,19 +131,7 @@ function runChain(api, initialData, chain, options) {
       return data;
     }
     const item = chain[index];
-    if (isGotoItem(item)) {
-      const gotoIndex = findGotoTarget(chain, item, index);
-      if (gotoIndex !== -1) {
-        index = gotoIndex;
-        isAsync = true;
-        if (options.blocking) {
-          processNextItem();
-        } else {
-          setImmediate(processNextItem);
-        }
-        return;
-      }
-    } else if (isApiCall(item)) {
+    if (isChainItem(item)) {
       const method = item.method.split(".").reduce((obj, key) => obj[key], api);
       if (typeof method !== "function") {
         throw new Error(`Method ${item.method} not found in API`);
@@ -216,13 +155,7 @@ async function runAsyncChain(api, initialData, chain, options) {
   let index = 0;
   while (index < chain.length) {
     const item = chain[index];
-    if (isGotoItem(item)) {
-      const gotoIndex = findGotoTarget(chain, item, index);
-      if (gotoIndex !== -1) {
-        index = gotoIndex;
-        continue;
-      }
-    } else if (isApiCall(item)) {
+    if (isChainItem(item)) {
       const method = item.method.split(".").reduce((obj, key) => obj[key], api);
       if (typeof method !== "function") {
         throw new Error(`Method ${item.method} not found in API`);
