@@ -1,255 +1,339 @@
-import { chainToString, stringToChain } from "./string";
-import { ApiCall, Ctx, Fluent, RequiredContext, StringChain } from "./types";
+// fluent.ts
 
-/**
- * Executes a method from the API with the provided context and arguments.
- * @param api - The API object containing the methods.
- * @param data - The context object passed to the method.
- * @param call - An object containing the method name and arguments.
- * @returns The result of the method execution.
- */
-function runMethod(api: Record<string, any>, data: any, call: ApiCall) {
-  const { method, args } = call;
-  const methodFunc: any = method.split(".").reduce((acc, key) => acc[key], api);
-  return methodFunc(data, ...(args || []));
+import {
+  RuntimeApiCall,
+  GotoItem,
+  ChainItem,
+  Chain,
+  FluentProxyStructure,
+  FluentProxy,
+  FluentConfig,
+  ApiContext,
+  HasRequiredProperties,
+  FluentOptions,
+  ApiCall,
+} from './types';
+
+// Utility functions
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
-/**
- * Executes a sequence of API calls, handling promises for asynchronous operations.
- * @param api - The API object containing the methods.
- * @param data - The initial context object.
- * @param firstResult - The result of the first API call.
- * @param calls - An array of subsequent API calls to execute.
- * @returns A promise that resolves to the final context after all calls are executed.
- */
-async function runPromises(
-  api: Record<string, any>,
-  data: any,
-  firstResult: Promise<any>,
-  calls: ApiCall[]
-) {
-  data = await (firstResult === void 0 ? data : firstResult) ?? data;
-  for (const call of calls) {
-    const result = runMethod(api, data, call);
-    data = await result ?? data;
-  }
-  return data;
-}
-
-/**
- * Finds the index of the next API call in the chain that matches the specified call.
- * @param calls - The list of API calls.
- * @param call - The API call to find in the list.
- * @param current - The current index in the list of API calls.
- * @returns The index of the matching call, or -1 if not found.
- */
-function callIndex(calls: ApiCall[], call: ApiCall, current: number) {
-  const remaining = calls.slice(current + 1);
-  const gotoCall = JSON.stringify(call);
-  const nextIndex = remaining.findIndex((c) => JSON.stringify(c) === gotoCall);
-  if (nextIndex > -1) {
-    return nextIndex;
-  }
-  const start = calls.slice(0, current + 1);
-  const prevIndex = start.findIndex(
-    ({ goto, ...c }) => JSON.stringify(c) === gotoCall
+function isApiCall(item: unknown): item is RuntimeApiCall {
+  return (
+    typeof item === 'object' &&
+    item !== null &&
+    'method' in item &&
+    typeof (item as any).method === 'string' &&
+    'args' in item &&
+    Array.isArray((item as any).args)
   );
-  return prevIndex;
 }
 
-/**
- * Creates a proxy object that allows fluent method chaining for the given API.
- * @param api - The API object containing methods and properties.
- * @param parentCalls - The list of previous API calls.
- * @param path - The current path of method calls.
- * @param ctx - The context configuration object.
- * @returns A proxy object that supports method chaining.
- */
-function createProxy<T extends Record<string, any>, D extends any>(
-  api: T,
-  parentCalls: ApiCall[],
-  path: string[],
-  ctx: Ctx
-): any {
-  const calls = [...parentCalls];
+function isGotoItem(item: unknown): item is GotoItem {
+  return (
+    typeof item === 'object' &&
+    item !== null &&
+    'goto' in item &&
+    typeof (item as any).goto === 'string' &&
+    'args' in item &&
+    Array.isArray((item as any).args)
+  );
+}
 
-  const run = (data: D, from = 0) => {
-    let goto = -1;
-    for (let i = from; i < calls.length; i++) {
-      let call = calls[i];
-      if (call.goto && call.goto.args) {
-        const index = callIndex(calls, call.goto.args[0], i);
-        if (index > -1) goto = index;
-      }
-      const result = runMethod(api, data, call);
-      if (result instanceof Promise) {
-        const remaining = calls.slice(i + 1);
-        return runPromises(api, data, result, remaining);
-      }
-      data = result === void 0 ? data : result;
-      if (goto > -1) continue;
-    }
-    if (goto > -1) {
-      if (ctx?.fluent?.blocking) {
-        return run(data, goto);
-      }
-      {
-        setTimeout(() => run(data, goto), 0);
-      }
-    }
-    return data;
-  };
+function isFluentProxy(value: unknown): value is FluentProxyStructure {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'chain' in value &&
+    Array.isArray((value as any).chain)
+  );
+}
 
-  const handler: ProxyHandler<any> = {
-    has(_, prop: string | symbol): boolean {
-      if (prop === "run" || prop === "toJSON" || prop === "goto" || prop === "toString") {
-        return true;
+function processArgument(arg: unknown, api: any, ctx: any): any {
+  if (isFluentProxy(arg)) {
+    return fluent({ api, chain: arg.chain, ctx });
+  }
+  if (Array.isArray(arg)) {
+    if (arg.every((a) => isApiCall(a) || isGotoItem(a))) {
+      return fluent({ api, chain: arg, ctx });
+    }
+    return arg.map((item) => processArgument(item, api, ctx));
+  }
+  if (isApiCall(arg)) {
+    return {
+      ...arg,
+      args: arg.args.map(a => processArgument(a, api, ctx))
+    };
+  }
+  if (isGotoItem(arg)) {
+    return {
+      ...arg,
+      args: arg.args.map(a => processArgument(a, api, ctx))
+    };
+  }
+  if (typeof arg === 'object' && arg !== null) {
+    const processedArg: Record<string, any> = {};
+    for (const key in arg) {
+      processedArg[key] = processArgument((arg as any)[key], api, ctx);
+    }
+    return processedArg;
+  }
+  return arg;
+}
+
+function chainItemToString(item: ChainItem): string {
+  if (isApiCall(item)) {
+    const args = item.args.map(arg => JSON.stringify(arg)).join(', ');
+    return `${item.method}(${args})`;
+  } else if (isGotoItem(item)) {
+    const args = item.args.map(arg => JSON.stringify(arg)).join(', ');
+    return `goto(${item.goto}(${args}))`;
+  }
+  return ''; // This should never happen if ChainItem is correctly typed
+}
+
+function createProxy<TRootApi, TCurrentApi, TCurrentChain extends Chain, TPath extends string>(
+  rootApi: TRootApi,
+  currentApi: TCurrentApi,
+  currentChain: TCurrentChain,
+  path: TPath,
+  options: FluentOptions
+): FluentProxy<TRootApi, TCurrentApi, TCurrentChain, TPath> {
+  const target: FluentProxy<TRootApi, TCurrentApi, TCurrentChain, TPath> = {
+    chain: currentChain,
+    run: (data: any) => runChain(rootApi, data, currentChain, options),
+    goto: (fluentProxy: FluentProxyStructure) => {
+      console.log('Goto received:', fluentProxy);
+      if (!isFluentProxy(fluentProxy) || fluentProxy.chain.length === 0 || !isApiCall(fluentProxy.chain[0])) {
+        throw new Error("Goto must receive a non-empty FluentProxy with an ApiCall as its first chain item");
       }
-      return prop in api;
+      const firstApiCall = fluentProxy.chain[0] as RuntimeApiCall;
+      const gotoItem: GotoItem = { 
+        goto: firstApiCall.method, 
+        args: firstApiCall.args as ReadonlyArray<any>
+      };
+      return createProxy(rootApi, currentApi, [...currentChain, gotoItem] as any, path, options);
     },
-    get(_, prop: string | symbol): any {
-      if (prop === "run") return run;
-      if (prop === "toJSON") return () => calls;
-      if (prop === "goto")
-        return (call: ApiCall) => {
-          const goto = {
-            method: "goto",
-            args: JSON.parse(JSON.stringify(call)),
-          };
-          calls[calls.length - 1].goto = goto;
-          return createProxy(api, [...calls], path, ctx);
-        };
-      if (prop === "toString") return () => chainToString(calls);
+    toString: () => currentChain.map(chainItemToString).join('.').replace(/\.$/, '')
+  } as FluentProxy<TRootApi, TCurrentApi, TCurrentChain, TPath>;
 
-      if (typeof prop !== "string") return undefined;
-
-      const baseTarget = prop in api ? api[prop] : undefined;
-      const newPath = baseTarget ? [prop] : [...path, prop];
-      const fullPath = newPath.join(".");
-      const targetValue = newPath.reduce((acc, key) => acc[key], api);
-
-      if (typeof targetValue === "object" && targetValue !== null) {
-        return createProxy(api, calls, newPath, ctx);
+  return new Proxy(target, {
+    get(target, prop: string | symbol) {
+      if (prop in target) {
+        return (target as any)[prop];
       }
 
-      if (typeof targetValue === "function") {
+      let nextApi: unknown;
+      let nextPath: string;
+
+      if (isObject(currentApi) && prop in currentApi) {
+        nextApi = (currentApi as any)[prop];
+        nextPath = `${path}${path ? '.' : ''}${prop as string}`;
+      } else if (isObject(rootApi) && prop in rootApi) {
+        nextApi = (rootApi as any)[prop];
+        nextPath = prop as string;
+      } else {
+        return undefined;
+      }
+
+      if (typeof nextApi === 'function') {
         return (...args: any[]) => {
-          return createProxy(
-            api,
-            [...calls, { method: fullPath, args }],
-            path,
-            ctx
-          );
+          const method = nextPath;
+          const newChain = [
+            ...currentChain,
+            { 
+              method, 
+              args: args.map(arg => isFluentProxy(arg) ? arg.chain[0] : arg),
+              dataType: {} as any,
+              returnType: {} as any
+            }
+          ];
+          return createProxy(rootApi, currentApi, newChain, path, options);
         };
+      }
+
+      if (isObject(nextApi)) {
+        return createProxy(rootApi, nextApi as any, currentChain, nextPath, options);
       }
 
       return undefined;
-    },
-  };
-
-  return new Proxy(() => {}, handler);
+    }
+  });
 }
 
-/**
- * Binds a context object to all functions within an API, allowing them to use the context as `this`.
- * @param api - The API object containing methods and properties.
- * @param ctx - The context object to bind to the API functions.
- * @returns The API object with context-bound functions.
- */
-function bindConfigToApi<T extends Record<string, any>>(api: T, ctx: Ctx): T {
-  const boundApi = {} as T;
-
+function bindApiToContext<TApi, TCtx>(api: TApi, ctx: TCtx = {} as TCtx): TApi {
+  const boundApi: any = {};
   for (const key in api) {
-    if (typeof api[key] === "function") {
-      // Bind the configuration to the function
-      boundApi[key] = api[key].bind(ctx);
-    } else if (typeof api[key] === "object" && api[key] !== null) {
-      // Recursively bind the configuration for nested objects
-      boundApi[key] = bindConfigToApi(api[key], ctx);
+    if (typeof api[key] === 'function') {
+      boundApi[key] = (api[key] as Function).bind(ctx);
+    } else if (typeof api[key] === 'object' && api[key] !== null) {
+      boundApi[key] = bindApiToContext(api[key], ctx);
     } else {
       boundApi[key] = api[key];
     }
   }
-
-  return boundApi;
+  return boundApi as TApi;
 }
 
-/**
- * Traverses the chain and its arguments. Recursively processes each element, converting serialized chains back into fluent interfaces,
- * and handling primitives, objects, and nested structures as needed.
- * @param chain - The chain to traverse.
- * @param api - The API object containing methods and properties.
- * @param ctx - The context object required by the API methods.
- * @returns The chain with serialized chains and nested structures converted into their appropriate forms.
- */
-export function initChain<T extends Record<string, any>>(
-  chain: ApiCall[],
-  api: T,
-  ctx: RequiredContext<T>
-): ApiCall[] {
-  return chain.map((call) => {
-    if (call.args) {
-      call.args = call.args.map((arg) => processArgument(arg, api, ctx));
-    }
-    return call;
-  });
-}
+function parseInitialChain<TApi, TCtx, T extends Chain | string | undefined>(
+  api: TApi,
+  ctx: TCtx,
+  chain: T
+): T extends string ? Chain : T extends Chain ? T : [] {
+  if (!chain) return [] as any;
 
-/**
- * Processes individual arguments within an API call, handling arrays, objects, and primitives.
- * @param arg - The argument to process.
- * @param api - The API object containing methods and properties.
- * @param ctx - The context object required by the API methods.
- * @returns The processed argument, potentially converted back into a fluent interface.
- */
-function processArgument<T extends Record<string, any>>(
-  arg: any,
-  api: T,
-  ctx: RequiredContext<T>
-): any {
-  const isArray = Array.isArray(arg);
-  const isObject = !isArray && typeof arg === "object" && arg !== null;
-
-  if (isArray) {
-    // Handle arrays that may contain serialized chains or other arrays
-    if (arg.every((a) => "method" in a)) {
-      return fluent({ api, chain: arg, ctx });
-    }
-    return arg.map((item) => processArgument(item, api, ctx)); // Recurse for nested arrays
+  let jsonChain: Chain;
+  if (typeof chain === 'string') {
+    const getChain = new Function("api", "fluent", `
+      const root = fluent({ api });
+      const { ${Object.keys(api as object).join(",")} } = root;
+      const chain = ${chain};
+      return chain.chain;
+    `);
+    jsonChain = getChain(api, fluent);
+  } else {
+    jsonChain = chain as Chain;
   }
 
-  if (isObject) {
-    // Handle objects by recursively processing each property
-    for (const key in arg) {
-      arg[key] = processArgument(arg[key], api, ctx);
+  return jsonChain.map((item) => {
+    if (isApiCall(item)) {
+      return {
+        ...item,
+        args: item.args.map((arg) => processArgument(arg, api, ctx))
+      };
     }
-    return arg;
-  }
-
-  // Return primitive values as-is
-  return arg;
+    if (isGotoItem(item)) {
+      return {
+        ...item,
+        args: item.args.map((arg) => processArgument(arg, api, ctx))
+      };
+    }
+    return item;
+  }) as any;
 }
 
-/**
- * Creates a fluent interface for the given API, allowing for method chaining and context management.
- * @param params - The parameters for creating the fluent interface.
- * @param params.api - The API object containing methods and properties.
- * @param params.chain - The initial chain of API calls.
- * @param params.ctx - The context object required by the API methods.
- * @returns A fluent interface for the given API.
- */
-export function fluent<T extends Record<string, any>, D extends any>({
-  api,
-  chain = [],
-  ctx,
-}: {
-  api: T;
-  chain?: StringChain | ApiCall[];
-  ctx: RequiredContext<T>;
-}): Fluent<T, D> {
-  const jsonChain = typeof chain === "string" ? stringToChain(api, chain) : chain;
-  const path = jsonChain.length ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1) : [];
-  const boundApi = bindConfigToApi(api, ctx || {});
-  const parsedChain = chain ? initChain(jsonChain, boundApi, ctx) : [];
-  return createProxy<T, D>(boundApi, parsedChain, path, ctx || {}) as Fluent<T, D>;
+function findGotoTarget(chain: Chain, gotoItem: GotoItem, currentIndex: number): number {
+  // First, search forward from the current position
+  for (let i = currentIndex + 1; i < chain.length; i++) {
+    if (matchesGotoTarget(chain[i], gotoItem)) {
+      return i;
+    }
+  }
+
+  // If not found, search from the beginning up to the current position
+  for (let i = 0; i < currentIndex; i++) {
+    if (matchesGotoTarget(chain[i], gotoItem)) {
+      return i;
+    }
+  }
+
+  return -1; // Target not found
+}
+
+function matchesGotoTarget(
+  chainItem: ChainItem,
+  gotoItem: GotoItem
+): boolean {
+  if (!isApiCall(chainItem)) {
+    return false;
+  }
+  return chainItem.method === gotoItem.goto && 
+         chainItem.args.length === gotoItem.args.length &&
+         chainItem.args.every((arg, index) => arg === gotoItem.args[index]);
+}
+
+const setImmediate = window.setImmediate || ((fn: Function, ...args: any[]) => setTimeout(fn, 0, ...args));
+
+function runChain<TApi>(api: TApi, initialData: any, chain: Chain, options: FluentOptions): any {
+  let data = initialData;
+  let index = 0;
+  let isAsync = false;
+
+  function processNextItem(): any {
+    if (index >= chain.length) {
+      return data;
+    }
+
+    const item = chain[index];
+
+    if (isGotoItem(item)) {
+      const gotoIndex = findGotoTarget(chain, item, index);
+      if (gotoIndex !== -1) {
+        index = gotoIndex;
+        isAsync = true;
+        if (options.blocking) {
+          processNextItem();
+        } else {
+          setImmediate(processNextItem);
+        }
+        return;
+      }
+    } else if (isApiCall(item)) {
+      const method = item.method.split('.').reduce((obj: any, key) => obj[key], api);
+      if (typeof method !== 'function') {
+        throw new Error(`Method ${item.method} not found in API`);
+      }
+
+      const result = method(data, ...item.args);
+
+      if (result instanceof Promise) {
+        return result.then(resolvedData => 
+          runAsyncChain(api, resolvedData, chain.slice(index + 1), options)
+        );
+      }
+
+      data = result === undefined ? data : result;
+    }
+
+    index++;
+    return processNextItem();
+  }
+
+  const result = processNextItem();
+  return isAsync ? new Promise(resolve => setImmediate(() => resolve(result))) : result;
+}
+
+async function runAsyncChain<TApi>(api: TApi, initialData: any, chain: Chain, options: FluentOptions): Promise<any> {
+  let data = initialData;
+  let index = 0;
+
+  while (index < chain.length) {
+    const item = chain[index];
+
+    if (isGotoItem(item)) {
+      const gotoIndex = findGotoTarget(chain, item, index);
+      if (gotoIndex !== -1) {
+        index = gotoIndex;
+        continue;
+      }
+    } else if (isApiCall(item)) {
+      const method = item.method.split('.').reduce((obj: any, key) => obj[key], api);
+      if (typeof method !== 'function') {
+        throw new Error(`Method ${item.method} not found in API`);
+      }
+
+      const result = await method(data, ...item.args);
+      data = result === undefined ? data : result;
+    }
+
+    index++;
+  }
+
+  return data;
+}
+
+export function fluent<TApi, TCtx extends ApiContext<TApi>, TInitialChain extends Chain = []>(
+  config: HasRequiredProperties<ApiContext<TApi>> extends true
+    ? FluentConfig<TApi, ApiContext<TApi>, TInitialChain> & { ctx: ApiContext<TApi> }
+    : FluentConfig<TApi, ApiContext<TApi>, TInitialChain>
+): FluentProxy<TApi, TApi, TInitialChain, ""> {
+  const { api, ctx, chain: initialChain } = config;
+
+  const boundApi = bindApiToContext(api, ctx);
+  const parsedChain = parseInitialChain(boundApi, ctx || {}, initialChain) as TInitialChain;
+
+  const options = ctx?.fluent || { blocking: false };
+
+  return createProxy(boundApi, boundApi, parsedChain, "", options);
 }

@@ -1,73 +1,113 @@
-// Represents a call to an API method, storing the method name, optional arguments, and an optional goto reference.
-export type ApiCall = {
-  method: string;
-  args?: any[];
-  goto?: any;
+// types.ts
+
+export type Primitive = string | number | boolean | null | undefined;
+export type Serializable = Primitive | SerializableArray | SerializableObject;
+export interface SerializableArray extends Array<Serializable> {}
+export interface SerializableObject {
+  [key: string]: Serializable;
+}
+
+export type ApiCall<TMethod extends string, TArgs extends ReadonlyArray<any>, TData = any, TReturn = any> = {
+  readonly method: TMethod;
+  readonly args: TArgs;
+  readonly dataType: TData;
+  readonly returnType: TReturn;
 };
 
-// Represents the context object, which can have any string keys with any type of values.
-export type Ctx = {
-  [key: string]: any;
+export type RuntimeApiCall = {
+  readonly method: string;
+  readonly args: ReadonlyArray<any>;
 };
 
-// The Fluent type recursively transforms an API structure into a fluent interface.
-// - For functions with no arguments or only optional arguments, allows them to be called as properties.
-// - For functions with required arguments, ensures they are invoked with the correct arguments.
-// - For nested objects, recursively applies the same transformation, allowing deeper structures to also be fluent.
-export type Fluent<T, D> = {
-  [K in keyof T]: // If the property is a function, infer its argument types
-  T[K] extends (ctx: any, ...args: infer Rest) => infer R
-    ? (...args: Rest) => Fluent<T, D> & { return: R }
-    : T[K] extends object
-    ? Fluent<T[K], D>
-    : // // If the property is neither a function nor an object, it's not supported in the fluent interface
-      never;
-} & {
-  // Allows the execution of the API chain with an optional context
-  run: D extends undefined ? (args?: any) => any : (args: D) => any;
-
-  // Allows jumping to a different call in the fluent chain
-  goto: (call: Fluent<T, D>) => Fluent<T, D>;
-
-  // Returns the current API chain as a string
-  toString: () => string;
+export type GotoItem<TMethod extends string = string, TArgs extends ReadonlyArray<any> = ReadonlyArray<any>> = {
+  goto: TMethod;
+  args: TArgs;
 };
 
-// Extracts the `this` type from a function, or returns `never` if the input is not a function.
-// This is used to determine the context (`this`) type required by each method.
-export type ExtractThisType<T> = T extends (
-  this: infer U,
-  ...args: any[]
-) => any
-  ? U
+export type ChainItem = RuntimeApiCall | GotoItem;
+export type Chain = ReadonlyArray<ChainItem>;
+
+export type FluentProxyStructure = { readonly chain: Chain };
+
+export type ExtractChain<T, Depth extends number = 0> = 
+  Depth extends 8 ? any 
+  : T extends string ? string 
+  : T extends number ? number
+  : T extends boolean ? boolean
+  : T extends null ? null
+  : T extends undefined ? undefined
+  : T extends FluentProxyStructure ? T['chain'][number]
+  : T extends ReadonlyArray<any> ? { [K in keyof T]: ExtractChain<T[K], AddOne<Depth>> }
+  : T extends object ? { readonly [K in keyof T]: ExtractChain<T[K], AddOne<Depth>> }
   : never;
 
-// Recursively traverses the API structure to collect all `this` types into a union.
-// - If the current type is an object, it checks each property and extracts its `this` type.
-// - If the current type is not an object, it returns `never`, effectively filtering out non-object types.
-export type UnionThisTypes<T> = T extends object
-  ? {
-      [K in keyof T]: ExtractThisType<T[K]> | UnionThisTypes<T[K]>;
-    }[keyof T]
-  : never;
+export type AddOne<T extends number> = [1, 2, 3, 4, 5, 6, 7, 8, 9][T];
 
-// Converts a union of types into an intersection of types.
-// - Uses TypeScript's distributive conditional types to convert a union into an intersection.
-// - This allows the merging of multiple `this` types into a single type that contains all properties.
-export type UnionToIntersection<U> = (
-  U extends any ? (k: U) => void : never
-) extends (k: infer I) => void
-  ? I
-  : never;
+export type ExtractThisParameter<T> = T extends (this: infer This, ...args: any[]) => any ? This : never;
 
-// Determines the required context (`this`) type for the API structure.
-// - First, it collects all `this` types into a union.
-// - Then, it converts the union into an intersection to ensure the context satisfies all required properties.
-// - If no `this` types are found, it returns `never`, indicating no specific context is required.
-export type RequiredContext<T> = UnionToIntersection<
-  UnionThisTypes<T>
-> extends never
-  ? never
-  : UnionToIntersection<UnionThisTypes<T>>;
+export interface FluentOptions {
+  blocking?: boolean;
+}
 
-export type StringChain = `${string}` | `${string}(${string})`;
+export type ApiContext<TApi> = UnionToIntersection<
+  {
+    [K in keyof TApi]: TApi[K] extends (...args: any[]) => any
+      ? ExtractThisParameter<TApi[K]>
+      : TApi[K] extends object
+      ? ApiContext<TApi[K]>
+      : never;
+  }[keyof TApi]
+> & {
+  fluent?: FluentOptions;
+};
+
+export type UnionToIntersection<U> = 
+  (U extends any ? (k: U) => void : never) extends ((k: infer I) => void) ? I : never;
+
+export type HasRequiredProperties<T> = T extends object
+  ? {} extends { [K in keyof T]: T[K] extends undefined ? never : K }
+    ? false
+    : true
+  : false;
+
+export type FluentProxy<TRootApi, TCurrentApi, TChain extends Chain, TPath extends string = ""> = FluentProxyStructure & {
+    readonly chain: TChain;
+    run: TChain extends []
+      ? never
+      : TChain extends [infer First, ...any[]]
+        ? First extends ApiCall<any, any, infer TData, any>
+          ? (data: TData) => TChain extends [...any[], infer Last]
+            ? Last extends ApiCall<any, any, infer TLastData, infer TReturn>
+              ? TReturn extends Promise<any> 
+                ? Promise<TReturn extends Promise<infer R> ? R : never>
+                : TReturn extends void ? TLastData : TReturn
+              : never
+            : never
+          : never
+        : never;
+    goto: <T extends FluentProxyStructure>(
+      fluentProxy: T
+    ) => T['chain'][0] extends ApiCall<infer M, infer A, any, any>
+      ? FluentProxy<TRootApi, TCurrentApi, [...TChain, GotoItem<M, A>], TPath>
+      : never;
+    toString: () => string;
+  } & {
+    [K in keyof TRootApi | keyof TCurrentApi]: 
+      K extends keyof TCurrentApi
+        ? TCurrentApi[K] extends (data: infer TData, ...args: infer TArgs) => infer TReturn
+          ? <T extends TArgs>(...args: T) => 
+              FluentProxy<TRootApi, TCurrentApi, [...TChain, ApiCall<`${TPath}${K & string}`, ExtractChain<T>, TData, TReturn>], TPath>
+          : FluentProxy<TRootApi, TCurrentApi[K] extends object ? TCurrentApi[K] : TCurrentApi, TChain, `${TPath}${K & string}.`>
+        : K extends keyof TRootApi
+          ? TRootApi[K] extends (data: infer TData, ...args: infer TArgs) => infer TReturn
+            ? <T extends TArgs>(...args: T) => 
+                FluentProxy<TRootApi, TRootApi, [...TChain, ApiCall<`${K & string}`, ExtractChain<T>, TData, TReturn>], "">
+            : FluentProxy<TRootApi, TRootApi[K] extends object ? TRootApi[K] : TRootApi, TChain, `${K & string}.`>
+          : never
+  };
+
+export type FluentConfig<TApi, TCtx, TInitialChain extends Chain = []> = {
+  api: TApi;
+  ctx?: TCtx;
+  chain?: TInitialChain | string;
+};

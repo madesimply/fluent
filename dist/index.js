@@ -1,191 +1,247 @@
-// src/string.ts
-function argToString(arg) {
-  if (typeof arg === "string") {
-    return `"${arg}"`;
-  }
-  if (arg && arg.method) {
-    return chainToString([arg]);
+// src/fluent.ts
+function isObject(value) {
+  return typeof value === "object" && value !== null;
+}
+function isApiCall(item) {
+  return typeof item === "object" && item !== null && "method" in item && typeof item.method === "string" && "args" in item && Array.isArray(item.args);
+}
+function isGotoItem(item) {
+  return typeof item === "object" && item !== null && "goto" in item && typeof item.goto === "string" && "args" in item && Array.isArray(item.args);
+}
+function isFluentProxy(value) {
+  return typeof value === "object" && value !== null && "chain" in value && Array.isArray(value.chain);
+}
+function processArgument(arg, api, ctx) {
+  if (isFluentProxy(arg)) {
+    return fluent({ api, chain: arg.chain, ctx });
   }
   if (Array.isArray(arg)) {
-    return `[${arg.map((v) => argToString(v)).join(", ")}]`;
+    if (arg.every((a) => isApiCall(a) || isGotoItem(a))) {
+      return fluent({ api, chain: arg, ctx });
+    }
+    return arg.map((item) => processArgument(item, api, ctx));
   }
-  if (arg && typeof arg === "object") {
-    return `{ ${Object.entries(arg).map(([k, v]) => `${k}: ${argToString(v)}`).join(", ")} }`;
+  if (isApiCall(arg)) {
+    return {
+      ...arg,
+      args: arg.args.map((a) => processArgument(a, api, ctx))
+    };
+  }
+  if (isGotoItem(arg)) {
+    return {
+      ...arg,
+      args: arg.args.map((a) => processArgument(a, api, ctx))
+    };
+  }
+  if (typeof arg === "object" && arg !== null) {
+    const processedArg = {};
+    for (const key in arg) {
+      processedArg[key] = processArgument(arg[key], api, ctx);
+    }
+    return processedArg;
   }
   return arg;
 }
-function chainToString(calls) {
-  return calls.map((call) => {
-    if (!call.args) {
-      return call.method;
-    }
-    const args = call.args.map((arg) => {
-      return argToString(arg);
-    }).join(", ");
-    return `${call.method}(${args})`;
-  }).join(".");
-}
-function stringToChain(api, chain) {
-  const getChain = new Function("api", "fluent", `
-    const root = fluent({ api });
-    const { ${Object.keys(api).join(",")} } = root;
-    const chain = ${chain};
-    return JSON.parse(JSON.stringify(chain));
-  `);
-  return getChain(api, fluent);
-}
-
-// src/fluent.ts
-function runMethod(api, data, call) {
-  const { method, args } = call;
-  const methodFunc = method.split(".").reduce((acc, key) => acc[key], api);
-  return methodFunc(data, ...args || []);
-}
-async function runPromises(api, data, firstResult, calls) {
-  data = await (firstResult === void 0 ? data : firstResult) ?? data;
-  for (const call of calls) {
-    const result = runMethod(api, data, call);
-    data = await result ?? data;
+function chainItemToString(item) {
+  if (isApiCall(item)) {
+    const args = item.args.map((arg) => JSON.stringify(arg)).join(", ");
+    return `${item.method}(${args})`;
+  } else if (isGotoItem(item)) {
+    const args = item.args.map((arg) => JSON.stringify(arg)).join(", ");
+    return `goto(${item.goto}(${args}))`;
   }
-  return data;
+  return "";
 }
-function callIndex(calls, call, current) {
-  const remaining = calls.slice(current + 1);
-  const gotoCall = JSON.stringify(call);
-  const nextIndex = remaining.findIndex((c) => JSON.stringify(c) === gotoCall);
-  if (nextIndex > -1) {
-    return nextIndex;
-  }
-  const start = calls.slice(0, current + 1);
-  const prevIndex = start.findIndex(
-    ({ goto, ...c }) => JSON.stringify(c) === gotoCall
-  );
-  return prevIndex;
-}
-function createProxy(api, parentCalls, path, ctx) {
-  const calls = [...parentCalls];
-  const run = (data, from = 0) => {
-    var _a;
-    let goto = -1;
-    for (let i = from; i < calls.length; i++) {
-      let call = calls[i];
-      if (call.goto && call.goto.args) {
-        const index = callIndex(calls, call.goto.args[0], i);
-        if (index > -1) goto = index;
+function createProxy(rootApi, currentApi, currentChain, path, options) {
+  const target = {
+    chain: currentChain,
+    run: (data) => runChain(rootApi, data, currentChain, options),
+    goto: (fluentProxy) => {
+      console.log("Goto received:", fluentProxy);
+      if (!isFluentProxy(fluentProxy) || fluentProxy.chain.length === 0 || !isApiCall(fluentProxy.chain[0])) {
+        throw new Error("Goto must receive a non-empty FluentProxy with an ApiCall as its first chain item");
       }
-      const result = runMethod(api, data, call);
-      if (result instanceof Promise) {
-        const remaining = calls.slice(i + 1);
-        return runPromises(api, data, result, remaining);
-      }
-      data = result === void 0 ? data : result;
-      if (goto > -1) continue;
-    }
-    if (goto > -1) {
-      if ((_a = ctx == null ? void 0 : ctx.fluent) == null ? void 0 : _a.blocking) {
-        return run(data, goto);
-      }
-      {
-        setTimeout(() => run(data, goto), 0);
-      }
-    }
-    return data;
-  };
-  const handler = {
-    has(_, prop) {
-      if (prop === "run" || prop === "toJSON" || prop === "goto" || prop === "toString") {
-        return true;
-      }
-      return prop in api;
+      const firstApiCall = fluentProxy.chain[0];
+      const gotoItem = {
+        goto: firstApiCall.method,
+        args: firstApiCall.args
+      };
+      return createProxy(rootApi, currentApi, [...currentChain, gotoItem], path, options);
     },
-    get(_, prop) {
-      if (prop === "run") return run;
-      if (prop === "toJSON") return () => calls;
-      if (prop === "goto")
-        return (call) => {
-          const goto = {
-            method: "goto",
-            args: JSON.parse(JSON.stringify(call))
-          };
-          calls[calls.length - 1].goto = goto;
-          return createProxy(api, [...calls], path, ctx);
-        };
-      if (prop === "toString") return () => chainToString(calls);
-      if (typeof prop !== "string") return void 0;
-      const baseTarget = prop in api ? api[prop] : void 0;
-      const newPath = baseTarget ? [prop] : [...path, prop];
-      const fullPath = newPath.join(".");
-      const targetValue = newPath.reduce((acc, key) => acc[key], api);
-      if (typeof targetValue === "object" && targetValue !== null) {
-        return createProxy(api, calls, newPath, ctx);
+    toString: () => currentChain.map(chainItemToString).join(".").replace(/\.$/, "")
+  };
+  return new Proxy(target, {
+    get(target2, prop) {
+      if (prop in target2) {
+        return target2[prop];
       }
-      if (typeof targetValue === "function") {
+      let nextApi;
+      let nextPath;
+      if (isObject(currentApi) && prop in currentApi) {
+        nextApi = currentApi[prop];
+        nextPath = `${path}${path ? "." : ""}${prop}`;
+      } else if (isObject(rootApi) && prop in rootApi) {
+        nextApi = rootApi[prop];
+        nextPath = prop;
+      } else {
+        return void 0;
+      }
+      if (typeof nextApi === "function") {
         return (...args) => {
-          return createProxy(
-            api,
-            [...calls, { method: fullPath, args }],
-            path,
-            ctx
-          );
+          const method = nextPath;
+          const newChain = [
+            ...currentChain,
+            {
+              method,
+              args: args.map((arg) => isFluentProxy(arg) ? arg.chain[0] : arg),
+              dataType: {},
+              returnType: {}
+            }
+          ];
+          return createProxy(rootApi, currentApi, newChain, path, options);
         };
+      }
+      if (isObject(nextApi)) {
+        return createProxy(rootApi, nextApi, currentChain, nextPath, options);
       }
       return void 0;
     }
-  };
-  return new Proxy(() => {
-  }, handler);
+  });
 }
-function bindConfigToApi(api, ctx) {
+function bindApiToContext(api, ctx = {}) {
   const boundApi = {};
   for (const key in api) {
     if (typeof api[key] === "function") {
       boundApi[key] = api[key].bind(ctx);
     } else if (typeof api[key] === "object" && api[key] !== null) {
-      boundApi[key] = bindConfigToApi(api[key], ctx);
+      boundApi[key] = bindApiToContext(api[key], ctx);
     } else {
       boundApi[key] = api[key];
     }
   }
   return boundApi;
 }
-function initChain(chain, api, ctx) {
-  return chain.map((call) => {
-    if (call.args) {
-      call.args = call.args.map((arg) => processArgument(arg, api, ctx));
+function parseInitialChain(api, ctx, chain) {
+  if (!chain) return [];
+  let jsonChain;
+  if (typeof chain === "string") {
+    const getChain = new Function("api", "fluent", `
+      const root = fluent({ api });
+      const { ${Object.keys(api).join(",")} } = root;
+      const chain = ${chain};
+      return chain.chain;
+    `);
+    jsonChain = getChain(api, fluent);
+  } else {
+    jsonChain = chain;
+  }
+  return jsonChain.map((item) => {
+    if (isApiCall(item)) {
+      return {
+        ...item,
+        args: item.args.map((arg) => processArgument(arg, api, ctx))
+      };
     }
-    return call;
+    if (isGotoItem(item)) {
+      return {
+        ...item,
+        args: item.args.map((arg) => processArgument(arg, api, ctx))
+      };
+    }
+    return item;
   });
 }
-function processArgument(arg, api, ctx) {
-  const isArray = Array.isArray(arg);
-  const isObject = !isArray && typeof arg === "object" && arg !== null;
-  if (isArray) {
-    if (arg.every((a) => "method" in a)) {
-      return fluent({ api, chain: arg, ctx });
+function findGotoTarget(chain, gotoItem, currentIndex) {
+  for (let i = currentIndex + 1; i < chain.length; i++) {
+    if (matchesGotoTarget(chain[i], gotoItem)) {
+      return i;
     }
-    return arg.map((item) => processArgument(item, api, ctx));
   }
-  if (isObject) {
-    for (const key in arg) {
-      arg[key] = processArgument(arg[key], api, ctx);
+  for (let i = 0; i < currentIndex; i++) {
+    if (matchesGotoTarget(chain[i], gotoItem)) {
+      return i;
     }
-    return arg;
   }
-  return arg;
+  return -1;
 }
-function fluent({
-  api,
-  chain = [],
-  ctx
-}) {
-  const jsonChain = typeof chain === "string" ? stringToChain(api, chain) : chain;
-  const path = jsonChain.length ? jsonChain.slice(-1)[0].method.split(".").slice(0, -1) : [];
-  const boundApi = bindConfigToApi(api, ctx || {});
-  const parsedChain = chain ? initChain(jsonChain, boundApi, ctx) : [];
-  return createProxy(boundApi, parsedChain, path, ctx || {});
+function matchesGotoTarget(chainItem, gotoItem) {
+  if (!isApiCall(chainItem)) {
+    return false;
+  }
+  return chainItem.method === gotoItem.goto && chainItem.args.length === gotoItem.args.length && chainItem.args.every((arg, index) => arg === gotoItem.args[index]);
+}
+var setImmediate = window.setImmediate || ((fn, ...args) => setTimeout(fn, 0, ...args));
+function runChain(api, initialData, chain, options) {
+  let data = initialData;
+  let index = 0;
+  let isAsync = false;
+  function processNextItem() {
+    if (index >= chain.length) {
+      return data;
+    }
+    const item = chain[index];
+    if (isGotoItem(item)) {
+      const gotoIndex = findGotoTarget(chain, item, index);
+      if (gotoIndex !== -1) {
+        index = gotoIndex;
+        isAsync = true;
+        if (options.blocking) {
+          processNextItem();
+        } else {
+          setImmediate(processNextItem);
+        }
+        return;
+      }
+    } else if (isApiCall(item)) {
+      const method = item.method.split(".").reduce((obj, key) => obj[key], api);
+      if (typeof method !== "function") {
+        throw new Error(`Method ${item.method} not found in API`);
+      }
+      const result2 = method(data, ...item.args);
+      if (result2 instanceof Promise) {
+        return result2.then(
+          (resolvedData) => runAsyncChain(api, resolvedData, chain.slice(index + 1), options)
+        );
+      }
+      data = result2 === void 0 ? data : result2;
+    }
+    index++;
+    return processNextItem();
+  }
+  const result = processNextItem();
+  return isAsync ? new Promise((resolve) => setImmediate(() => resolve(result))) : result;
+}
+async function runAsyncChain(api, initialData, chain, options) {
+  let data = initialData;
+  let index = 0;
+  while (index < chain.length) {
+    const item = chain[index];
+    if (isGotoItem(item)) {
+      const gotoIndex = findGotoTarget(chain, item, index);
+      if (gotoIndex !== -1) {
+        index = gotoIndex;
+        continue;
+      }
+    } else if (isApiCall(item)) {
+      const method = item.method.split(".").reduce((obj, key) => obj[key], api);
+      if (typeof method !== "function") {
+        throw new Error(`Method ${item.method} not found in API`);
+      }
+      const result = await method(data, ...item.args);
+      data = result === void 0 ? data : result;
+    }
+    index++;
+  }
+  return data;
+}
+function fluent(config) {
+  const { api, ctx, chain: initialChain } = config;
+  const boundApi = bindApiToContext(api, ctx);
+  const parsedChain = parseInitialChain(boundApi, ctx || {}, initialChain);
+  const options = (ctx == null ? void 0 : ctx.fluent) || { blocking: false };
+  return createProxy(boundApi, boundApi, parsedChain, "", options);
 }
 export {
-  fluent,
-  initChain
+  fluent
 };
 //# sourceMappingURL=index.js.map
