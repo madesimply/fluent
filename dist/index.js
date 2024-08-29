@@ -121,7 +121,16 @@ function parseInitialChain(api, ctx, chain) {
     return item;
   });
 }
-var setImmediate = window.setImmediate || ((fn, ...args) => setTimeout(fn, 0, ...args));
+var getSetImmediate = () => {
+  if (typeof setImmediate === "function") {
+    return setImmediate;
+  }
+  if (typeof globalThis !== "undefined" && typeof globalThis.setImmediate === "function") {
+    return globalThis.setImmediate;
+  }
+  return (fn, ...args) => setTimeout(fn, 0, ...args);
+};
+var setImmediate = getSetImmediate();
 function runChain(api, initialData, chain, options) {
   let data = initialData;
   let index = 0;

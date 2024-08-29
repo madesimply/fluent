@@ -169,7 +169,19 @@ function parseInitialChain<TApi, TCtx, T extends Chain | string | undefined>(
   }) as any;
 }
 
-const setImmediate = window.setImmediate || ((fn: Function, ...args: any[]) => setTimeout(fn, 0, ...args));
+// Utility function to get a cross-environment compatible setImmediate
+const getSetImmediate = () => {
+  if (typeof setImmediate === 'function') {
+    return setImmediate;
+  }
+  if (typeof globalThis !== 'undefined' && typeof globalThis.setImmediate === 'function') {
+    return globalThis.setImmediate;
+  }
+  return (fn: Function, ...args: any[]) => setTimeout(fn, 0, ...args);
+};
+
+// Use the utility function to create our setImmediate
+const setImmediate = getSetImmediate();
 
 function runChain<TApi>(api: TApi, initialData: any, chain: Chain, options: FluentOptions): any {
   let data = initialData;
