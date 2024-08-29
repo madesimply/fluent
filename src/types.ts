@@ -25,9 +25,9 @@ export type ExtractChain<T, Depth extends number = 0> =
   : T extends boolean ? boolean
   : T extends null ? null
   : T extends undefined ? undefined
-  : T extends FluentProxyStructure ? T['chain'][number]
-  : T extends ReadonlyArray<any> ? { [K in keyof T]: ExtractChain<T[K], AddOne<Depth>> }
-  : T extends { chain: Chain } ? T['chain'][number]
+  : T extends FluentProxyStructure ? T['chain']
+  : T extends ReadonlyArray<infer U> ? ExtractChain<U, AddOne<Depth>>[]
+  : T extends { chain: Chain } ? T['chain']
   : T extends object ? { readonly [K in keyof T]: ExtractChain<T[K], AddOne<Depth>> }
   : never;
 
@@ -84,17 +84,15 @@ export type HasRequiredProperties<T> = T extends object
       K extends keyof TCurrentApi
         ? TCurrentApi[K] extends (data: infer TData, ...args: infer TArgs) => infer TReturn
           ? <T extends TArgs>(...args: T) => 
-              FluentProxy<TRootApi, TCurrentApi, [...TChain, { method: `${TPath}${K & string}`; args: ExtractChain<T>; data: TData; return: TReturn extends void ? TData : TReturn }], TPath>
+              FluentProxy<TRootApi, TCurrentApi, [...TChain, { method: `${TPath}${K & string}`; args: { [P in keyof T]: ExtractChain<T[P]> }; data: TData; return: TReturn extends void ? TData : TReturn }], TPath>
           : FluentProxy<TRootApi, TCurrentApi[K] extends object ? TCurrentApi[K] : TCurrentApi, TChain, `${TPath}${K & string}.`>
         : K extends keyof TRootApi
           ? TRootApi[K] extends (data: infer TData, ...args: infer TArgs) => infer TReturn
             ? <T extends TArgs>(...args: T) => 
-                FluentProxy<TRootApi, TRootApi, [...TChain, { method: `${K & string}`; args: ExtractChain<T>; data: TData; return: TReturn extends void ? TData : TReturn }], "">
+                FluentProxy<TRootApi, TRootApi, [...TChain, { method: `${K & string}`; args: { [P in keyof T]: ExtractChain<T[P]> }; data: TData; return: TReturn extends void ? TData : TReturn }], "">
             : FluentProxy<TRootApi, TRootApi[K] extends object ? TRootApi[K] : TRootApi, TChain, `${K & string}.`>
           : never
   };
-
-
 
 export type FluentConfig<TApi, TCtx, TInitialChain extends Chain = []> = {
   api: TApi;
