@@ -30,11 +30,11 @@ function isObject(value) {
 function isChainItem(item) {
   return typeof item === "object" && item !== null && "method" in item && typeof item.method === "string" && "args" in item && Array.isArray(item.args);
 }
-function isFluentProxy(value) {
+function isFluent(value) {
   return typeof value === "object" && value !== null && "chain" in value && Array.isArray(value.chain);
 }
 function processArgument(arg, api, ctx) {
-  if (isFluentProxy(arg)) {
+  if (isFluent(arg)) {
     return fluent({ api, chain: arg.chain, ctx });
   }
   if (Array.isArray(arg)) {
@@ -64,8 +64,8 @@ function createProxy(rootApi, currentApi, currentChain, path, options) {
     chain: currentChain,
     run: (data) => runChain(rootApi, data, currentChain, options),
     goto: (fluentProxy) => {
-      if (!isFluentProxy(fluentProxy) || fluentProxy.chain.length === 0) {
-        throw new Error("Goto must receive a non-empty FluentProxy");
+      if (!isFluent(fluentProxy) || fluentProxy.chain.length === 0) {
+        throw new Error("Goto must receive a non-empty Fluent");
       }
       return createProxy(rootApi, currentApi, [...currentChain, ...fluentProxy.chain], path, options);
     },
@@ -94,7 +94,7 @@ function createProxy(rootApi, currentApi, currentChain, path, options) {
             ...currentChain,
             {
               method,
-              args: args.map((arg) => isFluentProxy(arg) ? arg.chain[0] : arg),
+              args: args.map((arg) => isFluent(arg) ? arg.chain[0] : arg),
               data: {},
               return: {}
             }

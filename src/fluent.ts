@@ -1,10 +1,9 @@
 // fluent.ts
-
 import {
   Chain,
-  FluentProxyStructure,
-  FluentProxy,
+  Fluent,
   FluentConfig,
+  FluentStructure,
   ApiContext,
   HasRequiredProperties,
   FluentOptions,
@@ -26,7 +25,7 @@ function isChainItem(item: unknown): item is Chain[number] {
   );
 }
 
-function isFluentProxy(value: unknown): value is FluentProxyStructure {
+function isFluent(value: unknown): value is FluentStructure {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -36,7 +35,7 @@ function isFluentProxy(value: unknown): value is FluentProxyStructure {
 }
 
 function processArgument(arg: unknown, api: any, ctx: any): any {
-  if (isFluentProxy(arg)) {
+  if (isFluent(arg)) {
     return fluent({ api, chain: arg.chain, ctx });
   }
   if (Array.isArray(arg)) {
@@ -69,18 +68,18 @@ function createProxy<TRootApi, TCurrentApi, TCurrentChain extends Chain, TPath e
   currentChain: TCurrentChain,
   path: TPath,
   options: FluentOptions
-): FluentProxy<TRootApi, TCurrentApi, TCurrentChain, TPath> {
-  const target: FluentProxy<TRootApi, TCurrentApi, TCurrentChain, TPath> = {
+): Fluent<TRootApi, TCurrentApi, TCurrentChain, TPath> {
+  const target: Fluent<TRootApi, TCurrentApi, TCurrentChain, TPath> = {
     chain: currentChain,
     run: (data: any) => runChain(rootApi, data, currentChain, options),
-    goto: (fluentProxy: FluentProxyStructure) => {
-      if (!isFluentProxy(fluentProxy) || fluentProxy.chain.length === 0) {
-        throw new Error("Goto must receive a non-empty FluentProxy");
+    goto: (fluentProxy: FluentStructure) => {
+      if (!isFluent(fluentProxy) || fluentProxy.chain.length === 0) {
+        throw new Error("Goto must receive a non-empty Fluent");
       }
       return createProxy(rootApi, currentApi, [...currentChain, ...fluentProxy.chain] as any, path, options);
     },
     toString: () => currentChain.map(chainItemToString).join('.').replace(/\.$/, '')
-  } as FluentProxy<TRootApi, TCurrentApi, TCurrentChain, TPath>;
+  } as Fluent<TRootApi, TCurrentApi, TCurrentChain, TPath>;
 
   return new Proxy(target, {
     get(target, prop: string | symbol) {
@@ -108,7 +107,7 @@ function createProxy<TRootApi, TCurrentApi, TCurrentChain extends Chain, TPath e
             ...currentChain,
             { 
               method, 
-              args: args.map(arg => isFluentProxy(arg) ? arg.chain[0] : arg),
+              args: args.map(arg => isFluent(arg) ? arg.chain[0] : arg),
               data: {} as any,
               return: {} as any
             }
@@ -236,7 +235,7 @@ export function fluent<TApi, TCtx extends ApiContext<TApi>, TInitialChain extend
   config: HasRequiredProperties<ApiContext<TApi>> extends true
     ? FluentConfig<TApi, ApiContext<TApi>, TInitialChain> & { ctx: ApiContext<TApi> }
     : FluentConfig<TApi, ApiContext<TApi>, TInitialChain>
-): FluentProxy<TApi, TApi, TInitialChain, ""> {
+): Fluent<TApi, TApi, TInitialChain, ""> {
   const { api, ctx, chain: initialChain } = config;
 
   const boundApi = bindApiToContext(api, ctx);
@@ -246,3 +245,12 @@ export function fluent<TApi, TCtx extends ApiContext<TApi>, TInitialChain extend
 
   return createProxy(boundApi, boundApi, parsedChain, "", options);
 }
+
+// export types
+
+export {
+  Fluent,
+  FluentConfig,
+  ApiContext,
+  FluentOptions,
+};
