@@ -103,13 +103,14 @@ function createProxy<TRootApi, TCurrentApi, TCurrentChain extends Chain, TPath e
       if (typeof nextApi === 'function') {
         return (...args: any[]) => {
           const method = nextPath;
+          const constArgs = { args } as const;
           const newChain = [
             ...currentChain,
             { 
               method, 
-              args: args.map(arg => isFluent(arg) ? arg.chain[0] : arg),
-              data: {} as any,
-              return: {} as any
+              args: constArgs.args,
+              data: {} as any, // Placeholder for data type
+              return: {} as any, // Placeholder for return type
             }
           ];
           return createProxy(rootApi, currentApi, newChain, path, options);
@@ -266,3 +267,34 @@ export {
   ApiContext,
   FluentOptions,
 };
+
+const api = {
+  users: {
+    get(this: { title?: string }, data: any, name: string) {
+      console.log('users.get', data);
+      return { name: 'John Doe' };
+    },
+    update(this: { title?: string }, data: any, name: string[]) {
+      console.log('users.update', data, name);
+      return { name };
+    },
+  },
+  posts: {
+    get(this: { title?: string }, data: any) {
+      console.log('posts.get', data);
+      return { title: 'Hello, World!' };
+    },
+    update(this: { title?: string }, data: any, title: string[]) {
+      console.log('posts.update', data, title);
+      return { title };
+    },
+  },
+};
+
+const root = fluent({ api });
+
+const chain = root.users.get('paul').posts.update(['New Title']);
+
+const result = chain.run(2)
+
+type TypeChain = typeof chain.chain
