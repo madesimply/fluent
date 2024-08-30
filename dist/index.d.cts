@@ -8,11 +8,11 @@ type ChainItem = {
     data: any;
     return: any;
 };
-type ExtractChain<T, Depth extends number = 0> = Depth extends 8 ? any : T extends string ? T : T extends number ? T : T extends boolean ? T : T extends null ? T : T extends undefined ? T : T extends FluentStructure ? T['chain'] : T extends ReadonlyArray<infer U> ? ExtractChain<U, AddOne<Depth>>[] : T extends {
+type ExtractChain<T, Depth extends number = 0> = Depth extends 8 ? any : T extends string ? T : T extends number ? T : T extends boolean ? T : T extends null ? null : T extends undefined ? undefined : T extends FluentStructure ? T['chain'] : T extends ReadonlyArray<infer U> ? ExtractChain<U, AddOne<Depth>>[] : T extends {
     chain: Chain;
 } ? T['chain'] : T extends object ? {
     readonly [K in keyof T]: ExtractChain<T[K], AddOne<Depth>>;
-} : never;
+} : T;
 type AddOne<T extends number> = [1, 2, 3, 4, 5, 6, 7, 8, 9][T];
 type ExtractThisParameter<T> = T extends (this: infer This, ...args: any[]) => any ? This extends object ? This : {} : {};
 interface FluentOptions {
