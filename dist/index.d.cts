@@ -22,7 +22,9 @@ type ChainItem = {
     data: unknown;
     return: unknown;
 };
-type ExtractChain<T> = T extends FluentStructure ? T['chain'] : T extends ReadonlyArray<infer U> ? ExtractChain<U>[] : T extends object ? {
+type ExtractChain<T> = T extends FluentStructure ? T['chain'] : T extends ReadonlyArray<infer U> ? {
+    [K in keyof T]: ExtractChain<T[K]>;
+} : T extends object ? {
     [K in keyof T]: ExtractChain<T[K]>;
 } : T;
 type Fluent<TRootApi, TCurrentApi, TChain extends Chain, TPath extends string = ""> = {
@@ -40,9 +42,7 @@ type Fluent<TRootApi, TCurrentApi, TChain extends Chain, TPath extends string = 
         ...TChain,
         {
             method: `${TPath}${K & string}`;
-            args: {
-                [P in keyof T]: ExtractChain<T[P]>;
-            };
+            args: ExtractChain<T>;
             data: TData;
             return: TReturn extends void ? TData : TReturn;
         }
@@ -50,9 +50,7 @@ type Fluent<TRootApi, TCurrentApi, TChain extends Chain, TPath extends string = 
         ...TChain,
         {
             method: `${K & string}`;
-            args: {
-                [P in keyof T]: ExtractChain<T[P]>;
-            };
+            args: ExtractChain<T>;
             data: TData;
             return: TReturn extends void ? TData : TReturn;
         }
