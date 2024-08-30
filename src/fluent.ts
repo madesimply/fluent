@@ -267,34 +267,3 @@ export {
   ApiContext,
   FluentOptions,
 };
-
-const api = {
-  users: {
-    get(this: { title?: string }, data: any, name: string) {
-      console.log('users.get', data);
-      return { name: 'John Doe' };
-    },
-    update(this: { title?: string }, data: any, name: string[]) {
-      console.log('users.update', data, name);
-      return { name };
-    },
-  },
-  posts: {
-    get(this: { title?: string }, data: any) {
-      console.log('posts.get', data);
-      return { title: 'Hello, World!' };
-    },
-    update(this: { title?: string }, data: any, title: string[]) {
-      console.log('posts.update', data, title);
-      return { title };
-    },
-  },
-};
-
-const root = fluent({ api });
-
-const chain = root.users.get('paul').posts.update(['New Title']);
-
-const result = chain.run(2)
-
-type TypeChain = typeof chain.chain

@@ -8,23 +8,23 @@ function isChainItem(item) {
 function isFluent(value) {
   return typeof value === "object" && value !== null && "chain" in value && Array.isArray(value.chain);
 }
-function processArgument(arg, api2, ctx) {
+function processArgument(arg, api, ctx) {
   if (isFluent(arg)) {
-    return fluent({ api: api2, chain: arg.chain, ctx });
+    return fluent({ api, chain: arg.chain, ctx });
   }
   if (Array.isArray(arg)) {
-    return arg.map((item) => processArgument(item, api2, ctx));
+    return arg.map((item) => processArgument(item, api, ctx));
   }
   if (isChainItem(arg)) {
     return {
       ...arg,
-      args: arg.args.map((a) => processArgument(a, api2, ctx))
+      args: arg.args.map((a) => processArgument(a, api, ctx))
     };
   }
   if (typeof arg === "object" && arg !== null) {
     const processedArg = {};
     for (const key in arg) {
-      processedArg[key] = processArgument(arg[key], api2, ctx);
+      processedArg[key] = processArgument(arg[key], api, ctx);
     }
     return processedArg;
   }
@@ -87,38 +87,38 @@ function createProxy(rootApi, currentApi, currentChain, path, options) {
     }
   });
 }
-function bindApiToContext(api2, ctx = {}) {
+function bindApiToContext(api, ctx = {}) {
   const boundApi = {};
-  for (const key in api2) {
-    if (typeof api2[key] === "function") {
-      boundApi[key] = api2[key].bind(ctx);
-    } else if (typeof api2[key] === "object" && api2[key] !== null) {
-      boundApi[key] = bindApiToContext(api2[key], ctx);
+  for (const key in api) {
+    if (typeof api[key] === "function") {
+      boundApi[key] = api[key].bind(ctx);
+    } else if (typeof api[key] === "object" && api[key] !== null) {
+      boundApi[key] = bindApiToContext(api[key], ctx);
     } else {
-      boundApi[key] = api2[key];
+      boundApi[key] = api[key];
     }
   }
   return boundApi;
 }
-function parseInitialChain(api2, ctx, chain2) {
-  if (!chain2) return [];
+function parseInitialChain(api, ctx, chain) {
+  if (!chain) return [];
   let jsonChain;
-  if (typeof chain2 === "string") {
+  if (typeof chain === "string") {
     const getChain = new Function("api", "fluent", `
       const root = fluent({ api });
-      const { ${Object.keys(api2).join(",")} } = root;
-      const chain = ${chain2};
+      const { ${Object.keys(api).join(",")} } = root;
+      const chain = ${chain};
       return chain.chain;
     `);
-    jsonChain = getChain(api2, fluent);
+    jsonChain = getChain(api, fluent);
   } else {
-    jsonChain = chain2;
+    jsonChain = chain;
   }
   return jsonChain.map((item) => {
     if (isChainItem(item)) {
       return {
         ...item,
-        args: item.args.map((arg) => processArgument(arg, api2, ctx))
+        args: item.args.map((arg) => processArgument(arg, api, ctx))
       };
     }
     return item;
@@ -134,83 +134,58 @@ var getSetImmediate = () => {
   return (fn, ...args) => setTimeout(fn, 0, ...args);
 };
 var setImmediate = getSetImmediate();
-function runChain(api2, initialData, chain2, options) {
+function runChain(api, initialData, chain, options) {
   let data = initialData;
   let index = 0;
   let isAsync = false;
   function processNextItem() {
-    if (index >= chain2.length) {
+    if (index >= chain.length) {
       return data;
     }
-    const item = chain2[index];
+    const item = chain[index];
     if (isChainItem(item)) {
-      const method = item.method.split(".").reduce((obj, key) => obj[key], api2);
+      const method = item.method.split(".").reduce((obj, key) => obj[key], api);
       if (typeof method !== "function") {
         throw new Error(`Method ${item.method} not found in API`);
       }
-      const result3 = method(data, ...item.args);
-      if (result3 instanceof Promise) {
-        return result3.then(
-          (resolvedData) => runAsyncChain(api2, resolvedData, chain2.slice(index + 1), options)
+      const result2 = method(data, ...item.args);
+      if (result2 instanceof Promise) {
+        return result2.then(
+          (resolvedData) => runAsyncChain(api, resolvedData, chain.slice(index + 1), options)
         );
       }
-      data = result3 === void 0 ? data : result3;
+      data = result2 === void 0 ? data : result2;
     }
     index++;
     return processNextItem();
   }
-  const result2 = processNextItem();
-  return isAsync ? new Promise((resolve) => setImmediate(() => resolve(result2))) : result2;
+  const result = processNextItem();
+  return isAsync ? new Promise((resolve) => setImmediate(() => resolve(result))) : result;
 }
-async function runAsyncChain(api2, initialData, chain2, options) {
+async function runAsyncChain(api, initialData, chain, options) {
   let data = initialData;
   let index = 0;
-  while (index < chain2.length) {
-    const item = chain2[index];
+  while (index < chain.length) {
+    const item = chain[index];
     if (isChainItem(item)) {
-      const method = item.method.split(".").reduce((obj, key) => obj[key], api2);
+      const method = item.method.split(".").reduce((obj, key) => obj[key], api);
       if (typeof method !== "function") {
         throw new Error(`Method ${item.method} not found in API`);
       }
-      const result2 = await method(data, ...item.args);
-      data = result2 === void 0 ? data : result2;
+      const result = await method(data, ...item.args);
+      data = result === void 0 ? data : result;
     }
     index++;
   }
   return data;
 }
 function fluent(config) {
-  const { api: api2, ctx, chain: initialChain } = config;
-  const boundApi = bindApiToContext(api2, ctx);
+  const { api, ctx, chain: initialChain } = config;
+  const boundApi = bindApiToContext(api, ctx);
   const parsedChain = parseInitialChain(boundApi, ctx || {}, initialChain);
   const options = (ctx == null ? void 0 : ctx.fluent) || { blocking: false };
   return createProxy(boundApi, boundApi, parsedChain, "", options);
 }
-var api = {
-  users: {
-    get(data, name) {
-      console.log("users.get", data);
-      return { name: "John Doe" };
-    },
-    update(data, name) {
-      console.log("users.update", data, name);
-      return { name };
-    }
-  },
-  posts: {
-    get(data) {
-      console.log("posts.get", data);
-      return { title: "Hello, World!" };
-    },
-    update(data, title) {
-      console.log("posts.update", data, title);
-      return { title };
-    }
-  }
-};
-var root = fluent({ api });
-var chain = root.users.get("paul").posts.update(["New Title"]);
-var result = chain.run(2);
 export {
   fluent
 };

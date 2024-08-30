@@ -1,13 +1,3 @@
-type Chain = ReadonlyArray<ChainItem>;
-type FluentStructure = {
-    readonly chain: Chain;
-};
-type ChainItem = {
-    method: string;
-    args: readonly unknown[];
-    data: unknown;
-    return: unknown;
-};
 type ExtractThisParameter<T> = T extends (this: infer This, ...args: any[]) => any ? This extends object ? This : {} : {};
 interface FluentOptions {
     blocking?: boolean;
@@ -21,6 +11,20 @@ type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
 type HasRequiredProperties<T> = T extends object ? {} extends {
     [K in keyof T]: T[K] extends undefined ? never : K;
 } ? false : true : false;
+type Chain = ReadonlyArray<ChainItem>;
+type FluentStructure = {
+    readonly chain: Chain;
+    run: () => any;
+};
+type ChainItem = {
+    method: string;
+    args: readonly unknown[];
+    data: unknown;
+    return: unknown;
+};
+type ExtractChain<T> = T extends FluentStructure ? T['chain'] : T extends ReadonlyArray<infer U> ? ExtractChain<U>[] : T extends object ? {
+    [K in keyof T]: ExtractChain<T[K]>;
+} : T;
 type Fluent<TRootApi, TCurrentApi, TChain extends Chain, TPath extends string = ""> = {
     readonly chain: TChain;
     run: TChain extends [] ? never : TChain extends [infer First, ...any[]] ? First extends {
@@ -32,17 +36,27 @@ type Fluent<TRootApi, TCurrentApi, TChain extends Chain, TPath extends string = 
     goto: <T extends FluentStructure>(fluentProxy: T) => Fluent<TRootApi, TCurrentApi, [...TChain, ...T['chain']], TPath>;
     toString: () => string;
 } & {
-    [K in keyof TRootApi | keyof TCurrentApi]: K extends keyof TCurrentApi ? TCurrentApi[K] extends (data: infer TData, ...args: infer TArgs) => infer TReturn ? <const T extends TArgs>(...args: T) => Fluent<TRootApi, TCurrentApi, [...TChain, {
-        method: `${TPath}${K & string}`;
-        args: T;
-        data: TData;
-        return: TReturn extends void ? TData : TReturn;
-    }], TPath> : Fluent<TRootApi, TCurrentApi[K] extends object ? TCurrentApi[K] : TCurrentApi, TChain, `${TPath}${K & string}.`> : K extends keyof TRootApi ? TRootApi[K] extends (data: infer TData, ...args: infer TArgs) => infer TReturn ? <const T extends TArgs>(...args: T) => Fluent<TRootApi, TRootApi, [...TChain, {
-        method: `${K & string}`;
-        args: T;
-        data: TData;
-        return: TReturn extends void ? TData : TReturn;
-    }], ""> : Fluent<TRootApi, TRootApi[K] extends object ? TRootApi[K] : TRootApi, TChain, `${K & string}.`> : never;
+    [K in keyof TRootApi | keyof TCurrentApi]: K extends keyof TCurrentApi ? TCurrentApi[K] extends (this: any, data: infer TData, ...args: infer TArgs) => infer TReturn ? <const T extends TArgs>(...args: T) => Fluent<TRootApi, TCurrentApi, [
+        ...TChain,
+        {
+            method: `${TPath}${K & string}`;
+            args: {
+                [P in keyof T]: ExtractChain<T[P]>;
+            };
+            data: TData;
+            return: TReturn extends void ? TData : TReturn;
+        }
+    ], TPath> : Fluent<TRootApi, TCurrentApi[K] extends object ? TCurrentApi[K] : TCurrentApi, TChain, `${TPath}${K & string}.`> : K extends keyof TRootApi ? TRootApi[K] extends (this: any, data: infer TData, ...args: infer TArgs) => infer TReturn ? <const T extends TArgs>(...args: T) => Fluent<TRootApi, TRootApi, [
+        ...TChain,
+        {
+            method: `${K & string}`;
+            args: {
+                [P in keyof T]: ExtractChain<T[P]>;
+            };
+            data: TData;
+            return: TReturn extends void ? TData : TReturn;
+        }
+    ], ""> : Fluent<TRootApi, TRootApi[K] extends object ? TRootApi[K] : TRootApi, TChain, `${K & string}.`> : never;
 };
 type FluentConfig<TApi, TCtx, TInitialChain extends Chain = []> = {
     api: TApi;
