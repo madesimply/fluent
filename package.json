@@ -14,9 +14,7 @@
   },
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
+  "files": [ "dist" ],
   "scripts": {
     "build": "tsup"
   },
@@ -25,8 +23,5 @@
     "tsup": "^8.2.4",
     "typescript": "^5.5.4"
   },
-  "license": "MIT",
-  "dependencies": {
-    "json-fixer": "^1.6.15"
-  }
+  "license": "MIT"
 }
