@@ -7,6 +7,7 @@ import {
   ApiContext,
   HasRequiredProperties,
   FluentOptions,
+  SetImmediateFunction,
 } from './types';
 
 // Utility functions
@@ -171,18 +172,18 @@ function parseInitialChain<TApi, TCtx, T extends Chain | string | undefined>(
 }
 
 // Utility function to get a cross-environment compatible setImmediate
-const getSetImmediate = () => {
+const getSetImmediate = (): SetImmediateFunction => {
   if (typeof setImmediate === 'function') {
     return setImmediate;
   }
   if (typeof globalThis !== 'undefined' && typeof globalThis.setImmediate === 'function') {
     return globalThis.setImmediate;
   }
-  return (fn: Function, ...args: any[]) => setTimeout(fn, 0, ...args);
+  return (fn: (...args: any[]) => void, ...args: any[]) => setTimeout(fn, 0, ...args);
 };
 
 // Use the utility function to create our setImmediate
-const setImmediate = getSetImmediate();
+const setImmediate: SetImmediateFunction = getSetImmediate();
 
 function runChain<TApi>(api: TApi, initialData: any, chain: Chain, options: FluentOptions): any {
   let data = initialData;

@@ -103,3 +103,5 @@ export type FluentConfig<TApi, TCtx, TInitialChain extends Chain = []> = {
   ctx?: TCtx;
   chain?: TInitialChain | string;
 };
+
+export type SetImmediateFunction = (callback: (...args: any[]) => void, ...args: any[]) => void;

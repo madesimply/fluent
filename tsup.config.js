@@ -10,5 +10,6 @@ export default defineConfig(() => {
     splitting: false,
     sourcemap: true,
     clean: true,
+    tsconfig: "./tsconfig.json", // Add this line
   };
 });
