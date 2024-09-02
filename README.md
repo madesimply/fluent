@@ -11,7 +11,7 @@ Fluent helps you build complex [fluent interfaces](https://en.wikipedia.org/wiki
 To install Fluent, use npm to install from github (npm register coming later):
 
 ```bash
-npm install https://github.com/paulpomerleau/fluent
+npm install npm install github:madesimply/fluent
 ```
 
 ## Quickstart
