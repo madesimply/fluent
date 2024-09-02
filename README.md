@@ -67,7 +67,7 @@ const greetingApi = { withTimeOfDay, withWeather, sayHello };
 const api = fluent({ api: greetingApi, ctx: { apiKey: 'mykey' }});
 
 // now we can build up our chain
-const chain = api.withTimeOfDay.sayHello("Bob");
+const chain = api.withTimeOfDay().sayHello("Bob");
 
 // output: Hello good morning Bob!
 chain.run({});
@@ -80,7 +80,7 @@ const enhancedApi = { ...greetingApi, withNews, withStockPrices };
 // you can add more functionality later
 const api2 = fluent({ api: enhancedApi });
 
-const chain2 = api2.withWeather.withNews.sayHello("Alice");
+const chain2 = api2.withWeather().withNews().sayHello("Alice");
 
 // output: Hello Alice! Looks like a cold day today
 chain2.run({});
@@ -97,7 +97,7 @@ const rehydratedChain = fluent({ api: enhancedApi, chain: withoutSayHello });
 // now we can add to it and run it
 // outputs: Hello good morning Tim! Looks like a cold day today
 rehydratedChain
-    .withTimeOfDay
+    .withTimeOfDay()
     .sayHello("Tim")
     .run({});
 ```
@@ -169,13 +169,13 @@ const {
     goto 
 } = fluent({ api: { shouldSkip, ...steps }});
 
-stepOne
- .shouldSkip('skip', goto(stepFive))
- .stepTwo
+stepOne()
+ .shouldSkip('skip', goto(stepFive()))
+ .stepTwo()
  .shouldSkip('skip', goto(stepFour('with args')))
- .stepThree
+ .stepThree()
  .stepFour('with args')
- .stepFive.run()
+ .stepFive().run()
 ```
 it's also non blocking making it great for tasks that are recursive in nature. 
 ```typescript
@@ -183,8 +183,8 @@ it's also non blocking making it great for tasks that are recursive in nature.
 const { hello } = fluent({ api: { hello: () => console.log('hello forever') }});
 
 // this is fine, maybe not a good idea but it's fine
-hello
-    .goto(hello)
+hello()
+    .goto(hello())
     .run();
 ```
 
@@ -207,33 +207,13 @@ const each(data, ops) => {
 }
 ```
 
-### You can't use spread arguments
-We had to choose between requiring `()` on no arg chain functions or forcing named arguments and chose the later.
-```typescript
-// we could have done this but it hurts readability imo
-chain.noArgs().withArgs('here'); 
-
-// we went with this
-chain.noArgs.withArgs('here');
-```
-The workaround is to use an array.
-```typescript
-chain.withNplusArgs([data, 'test', 2]);
-
-// in withNPlusArgs you can then spread
-function withNPlusArgs([...args]) {
-
-}
-```
-
 ### Args must be serializable
 Because the chains can be serialized, ensure your args are too. If you need to send non-serializable objects / functions, do it by reference and context. 
 
 ```typescript
 const saySomething = (data, pointer) => {
-    const message = data[pointer];
+    const message = data[pointer]();
     console.log(message);
-    return data;
 }
 
 // later
@@ -269,9 +249,9 @@ const api = {
 
 // ... later
 const op = root.or([
-    root.string.email.corporate,
-    root.string.email.gmail
-]).auth.registerLead;
+    root.string.email().corporate(),
+    root.string.email().gmail()
+]).auth.registerLead();
 ```
 
 ### Typescript Support
@@ -287,8 +267,8 @@ const api: {
 }
 
 // later
-root.method //fine
-root.method.withArgs() // typerror
+root.method() //fine
+root.method().withArgs() // typerror
 ```
 
 ### Namespace traversal
@@ -306,13 +286,13 @@ const api = fluent({ api: {
 }});
 
 root = 
-    base
+    base()
         // we're in namespace and can chain namespace methods
-        .namespace.first.second 
+        .namespace.first().second() 
         // switch to different and use those methods
-        .different.third
+        .different.third()
         // use a root method
-        .base
+        .base()
 ```
 
 ## Use Cases
@@ -338,9 +318,9 @@ You can also create logical operands. This can lead to extremely complex chains 
 
 ```typescript
 const op = whileNotFinished([
-    if(string.email.corporate, email.monthlyReport).
-    if(string.email.gmail, email.monthlyUpdates).
-]).everyStaff(email.chainResults);
+    if(string.email().corporate(), email().monthlyReport()).
+    if(string.email().gmail(), email().monthlyUpdates()).
+]).everyStaff(email().chainResults());
 
 const result = await run({ op, api, ctx });
 ```
