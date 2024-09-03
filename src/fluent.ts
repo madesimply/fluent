@@ -1,6 +1,7 @@
 // fluent.ts
 import {
   Chain,
+  ChainItem,
   Fluent,
   FluentConfig,
   FluentStructure,
@@ -265,6 +266,8 @@ export function fluent<TApi, TCtx extends ApiContext<TApi>, TInitialChain extend
 export {
   Fluent,
   FluentConfig,
+  Chain,
+  ChainItem,
   ApiContext,
   FluentOptions,
 };

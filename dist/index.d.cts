@@ -66,4 +66,4 @@ declare function fluent<TApi, TCtx extends ApiContext<TApi>, TInitialChain exten
     ctx: ApiContext<TApi>;
 } : FluentConfig<TApi, ApiContext<TApi>, TInitialChain>): Fluent<TApi, TApi, TInitialChain, "">;
 
-export { type ApiContext, type Fluent, type FluentConfig, type FluentOptions, fluent };
+export { type ApiContext, type Chain, type ChainItem, type Fluent, type FluentConfig, type FluentOptions, fluent };
